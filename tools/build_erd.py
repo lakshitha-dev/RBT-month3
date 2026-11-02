@@ -384,11 +384,45 @@ def render_drawio(tables, relationships):
         + "\n".join(cells) + "\n</root></mxGraphModel></diagram></mxfile>\n", encoding="utf-8")
 
 
+# ── Mermaid export ───────────────────────────────────────────────
+
+MERMAID_PARENT = {"one": "||", "zero_one": "|o"}
+MERMAID_CHILD = {"zero_many": "o{", "zero_one": "o|"}
+
+
+def render_mermaid(tables, relationships):
+    """Text form of the ERD (Mermaid erDiagram), which GitHub renders."""
+    lines = ["erDiagram"]
+    for rel in relationships:
+        lines.append(f'  {rel["parent"]} {MERMAID_PARENT[rel["parent_end"]]}--'
+                     f'{MERMAID_CHILD[rel["child_end"]]} {rel["child"]} : "{rel["column"]}"')
+    for name, t in tables.items():
+        lines.append(f"  {name} {{")
+        for c in t["columns"]:
+            # Mermaid types cannot hold "(255)", so the size goes in the comment.
+            base, _, size = c["type"].partition("(")
+            notes = [size.rstrip(")")] if size else []
+            if c["not_null"]:
+                notes.append("not null")
+            if "IX" in c["keys"]:
+                notes.append("indexed")
+            keys = ", ".join(k for k in c["keys"] if k in ("PK", "FK", "UK"))
+            comment = f' "{", ".join(notes)}"' if notes else ""
+            lines.append(f"    {base.replace(' ', '_')} {c['name']}{' ' + keys if keys else ''}{comment}")
+        lines.append("  }")
+    return "\n".join(lines)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--db", default="shopflow_m3")
+    parser.add_argument("--mermaid", action="store_true",
+                        help="print the ERD as a Mermaid erDiagram instead of writing files")
     args = parser.parse_args()
     tables, relationships = load_schema(args.db)
+    if args.mermaid:
+        print(render_mermaid(tables, relationships))
+        return
     missing = set(tables) - {n for col in LAYOUT for n in col}
     assert not missing, f"tables missing from LAYOUT: {missing}"
     size = measure(tables)

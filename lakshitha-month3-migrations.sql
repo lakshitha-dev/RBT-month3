@@ -18,9 +18,40 @@
 -- Run on an empty database:
 --   psql -d shopflow -v ON_ERROR_STOP=1 -f lakshitha-month3-migrations.sql
 --
--- Rollback: lakshitha-month3-migrations-down.sql has one matching
+-- Rollback: lakshitha-month3-rollback.sql has one matching
 -- section per version (newest first). It skips versions that are not
 -- applied, so it is safe to run more than once.
+--
+-- Design notes (full reasoning: lakshitha-month3-design-decisions.md)
+--   Normalization (3NF / BCNF):
+--     - Every column is atomic; repeating data has its own table
+--       (addresses, payment_methods, cart/order lines, status history).
+--     - Each non-key column depends only on its table's key: category
+--       names live in categories, variant attributes in
+--       product_variants, stock in inventory; orders reference
+--       addresses.id instead of copying address fields.
+--     - The only other determinants are UNIQUE candidate keys
+--       (users.email, products.slug, product_variants.sku,
+--       promotions.code, payment_methods.provider_token).
+--   Relationships:
+--     1:1   product_variants - inventory, users - carts (UNIQUE FK)
+--     1:N   users -> addresses / payment_methods / orders / reviews,
+--           products -> product_variants, orders -> order_items /
+--           order_status_history, categories -> products
+--     1:N recursive   categories.parent_id -> categories.id
+--     M:N   users <-> product_variants via cart_items and wishlist_items,
+--           orders <-> product_variants via order_items,
+--           users <-> products via reviews (one review per pair)
+--   Constraints enforce business rules in the database: money and
+--   quantity ranges, total = subtotal - discount + tax, line total =
+--   quantity x unit_price, reserved <= in stock, promotion windows and
+--   usage caps, one default address / payment method per user.
+--   Deliberate denormalization: order_items.unit_price (price at
+--   purchase time), order money totals (CHECK-guarded), and
+--   promotions.used_count (cheap validity check at checkout).
+--   Delete rules: RESTRICT protects orders (financial records);
+--   CASCADE removes rows that are meaningless without their parent;
+--   SET NULL keeps products/orders when a category or promo goes.
 -- ============================================================
 
 

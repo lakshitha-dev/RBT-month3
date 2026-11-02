@@ -96,7 +96,7 @@ Everything else stays normalized. Further steps, such as a monthly-revenue summa
 - **Status history in its own table** instead of `shipped_at` / `delivered_at` columns on `orders`. New statuses need no schema change, and every transition is kept, including refunds after delivery. A trigger (V003) writes the history automatically, so application code cannot forget to.
 - **`updated_at` trigger** (V003). It sets the timestamp on every `UPDATE` unless the statement set it explicitly (the seed script uses that to write historical times).
 - **Migrations are versioned**, and each version runs inside `BEGIN ... COMMIT`. Postgres DDL is transactional, so a failing version rolls back completely, and `schema_migrations` records what has been applied.
-- **Every version can be rolled back.** `lakshitha-month3-migrations-down.sql` has one section per version, newest first. Each section runs only if `schema_migrations` lists its version, so it is safe to re-run and cannot undo a version that was never applied. Tested: rolling back V004 → V002 gives exactly the V001-only schema with all data intact, and re-applying gives back an identical schema and an identical ERD.
+- **Every version can be rolled back.** `lakshitha-month3-rollback.sql` has one section per version, newest first. Each section runs only if `schema_migrations` lists its version, so it is safe to re-run and cannot undo a version that was never applied. Tested: rolling back V004 → V002 gives exactly the V001-only schema with all data intact, and re-applying gives back an identical schema and an identical ERD.
 
 ## 9. Alternatives considered
 

@@ -9,7 +9,7 @@ PostgreSQL database for an online marketplace. It covers schema design, versione
 | # | Deliverable | File |
 |---|---|---|
 | 1 | ERD diagram | [`lakshitha-month3-erd.png`](lakshitha-month3-erd.png), editable in Draw.io: [`lakshitha-month3-erd.drawio`](lakshitha-month3-erd.drawio) |
-| 2 | Migration scripts | [`lakshitha-month3-migrations.sql`](lakshitha-month3-migrations.sql), rollback: [`lakshitha-month3-migrations-down.sql`](lakshitha-month3-migrations-down.sql) |
+| 2 | Migration scripts | [`lakshitha-month3-migrations.sql`](lakshitha-month3-migrations.sql), rollback: [`lakshitha-month3-rollback.sql`](lakshitha-month3-rollback.sql) |
 | 3 | Query optimization report | [`lakshitha-month3-optimization-report.md`](lakshitha-month3-optimization-report.md) |
 | 4 | Seed data script | [`lakshitha-month3-seed.sql`](lakshitha-month3-seed.sql) |
 | | Complex queries (10) | [`lakshitha-month3-queries.sql`](lakshitha-month3-queries.sql) |
@@ -31,7 +31,7 @@ The migrations and queries are plain SQL and also run in pgAdmin or DBeaver. The
 | Task | Command |
 |---|---|
 | Larger dataset (~1.25M rows) | `psql -d shopflow -v users=50000 -v products=10000 -v orders=100000 -v reviews=60000 -f lakshitha-month3-seed.sql` |
-| Roll back all migrations | `psql -d shopflow -f lakshitha-month3-migrations-down.sql` (or run its sections top-down to stop at a version) |
+| Roll back all migrations | `psql -d shopflow -f lakshitha-month3-rollback.sql` (or run its sections top-down to stop at a version) |
 | Re-run the before/after benchmark | `python benchmarks/run_benchmark.py --db shopflow_perf` (creates and seeds a new database) |
 | Regenerate the ERD from a live database | `python tools/build_erd.py --db shopflow` (needs Pillow) |
 

@@ -2,6 +2,8 @@
 
 Before/after analysis of the 10 challenge queries (`lakshitha-month3-queries.sql`) plus 5 extra cases: the brief's own example, and three query rewrites / tuning experiments.
 
+**Contents:** 1. Test setup · 2. Results summary · 3. Per-query analysis · 4. Indexes kept and pruned · 5. Lessons learned · 6. Next steps · **Appendix A** all 10 queries with a SQL-feature matrix and correctness checks · **Appendix B** EXPLAIN ANALYZE excerpts · **Appendix C** ERD in text form (Mermaid)
+
 **Where each version lives:** `lakshitha-month3-queries.sql` contains the **final, optimized** queries. Q4 and Q5 there are the rewrites measured as **Q4b / Q5b** below. Their first-draft versions, measured as **Q4 / Q5**, are kept in `benchmarks/baseline-queries.sql`. The brief's example (Q11, Q11b) and the `work_mem` experiment (Q6b) are in `benchmarks/extra-queries.sql`.
 
 - **Before** = migrations V000 + V001 + V003: tables, triggers, and only the indexes behind PRIMARY KEY / UNIQUE constraints.
@@ -474,3 +476,639 @@ Which V002 indexes did any measured plan actually use?
 - Add a `daily_sales` summary table (or materialized view) for Q1/Q10, and re-measure.
 - Set `work_mem` per role for the reporting user.
 - Track index usage over time with `pg_stat_user_indexes.idx_scan` and drop indexes that stay at 0.
+
+## Appendix A. The 10 complex queries
+
+Final versions, exactly as in `lakshitha-month3-queries.sql`. The SQL-feature columns are detected from the query text, and the row counts come from running each query on a freshly migrated and seeded database (default seed size).
+
+| # | Query | Use case | JOINs | Aggregates | CTE / subquery | Window functions | Date filter | Other | Rows |
+|---|---|---|---|---|---|---|---|---|---:|
+| 1 | Top Selling Products by Category | Sales analytics | INNER | SUM | - | - | INTERVAL, CURRENT_DATE | LIMIT | 10 |
+| 2 | Customer Lifetime Value | Customer analytics | INNER | COUNT, SUM, AVG, MIN, MAX | CTE | RANK | - | LIMIT | 20 |
+| 3 | Inventory Low Stock Alert | Operations alert | INNER | - | - | - | - | - | 224 |
+| 4 | Review Statistics by Product | Product analytics | INNER, LEFT | COUNT, AVG | CTE | - | - | FILTER, HAVING, LIMIT | 20 |
+| 5 | Cart Abandonment Analysis | Marketing analytics | INNER | COUNT, SUM | correlated subquery | - | INTERVAL, CURRENT_DATE | - | 136 |
+| 6 | Order Status Breakdown | Operations report | INNER, LEFT | COUNT, SUM, AVG | CTE | LEAD, SUM | INTERVAL, CURRENT_DATE | - | 6 |
+| 7 | Category Hierarchy with Product Counts | Catalog report | INNER, LEFT | COUNT, SUM | recursive CTE | - | - | FILTER, COALESCE | 54 |
+| 8 | User Purchase History | Customer-facing page | INNER | SUM | CTE | ROW_NUMBER, LAG, SUM | - | - | 7 |
+| 9 | Promotion Usage Report | Marketing report | RIGHT | COUNT, SUM | - | - | - | CASE, COALESCE | 26 |
+| 10 | Revenue by Time Period | Finance report | - | COUNT, SUM | CTE | LAG | DATE_TRUNC | NULLIF | 37 |
+
+**Correctness checks** (all run on a fresh database):
+
+- All 10 queries run without errors and return rows.
+- The rewritten Q4 and Q5 return exactly the same rows as their first drafts (`benchmarks/baseline-queries.sql`), checked row by row.
+- The data they read is internally consistent: 0 orders where total ≠ subtotal − discount + tax, 0 where subtotal ≠ sum of line items, 0 line items where total ≠ quantity × unit price, 0 orders whose status differs from the last status-history entry.
+- Edge cases are handled in SQL: `NULLIF` avoids division by zero in growth percentages (Q10); promotions with no usage cap get `NULL` usage % instead of an error (Q9); `COALESCE` turns missing promotion revenue into 0 (Q9); `LEFT JOIN`s keep categories without products and promotions never used (Q7, Q9); `HAVING COUNT(r.id) >= 3` avoids ranking products on one or two reviews (Q4).
+
+Sample output, Query 6 (order status breakdown, last 90 days, default seed):
+
+```
+  status   | order_count | total_revenue | avg_order_value | percentage | avg_hours_before_next_status 
+-----------+-------------+---------------+-----------------+------------+------------------------------
+ delivered |        1091 |    1168280.28 |         1070.83 |      71.40 |                        352.2
+ shipped   |         146 |     151457.19 |         1037.38 |       9.55 |                        110.6
+ cancelled |         126 |     106610.12 |          846.11 |       8.25 |                             
+ confirmed |          67 |      81404.76 |         1215.00 |       4.38 |                         35.3
+ refunded  |          61 |      64107.20 |         1050.94 |       3.99 |                             
+ pending   |          37 |      40657.39 |         1098.85 |       2.42 |                         12.6
+(6 rows)
+```
+
+<details><summary>Query 1: Top Selling Products by Category</summary>
+
+```sql
+SELECT
+  c.name                              AS category,
+  p.name                              AS product,
+  SUM(oi.quantity)                    AS total_units_sold,
+  SUM(oi.quantity * oi.unit_price)    AS revenue
+FROM order_items oi
+JOIN orders           o  ON oi.order_id   = o.id
+JOIN product_variants pv ON oi.variant_id = pv.id
+JOIN products         p  ON pv.product_id = p.id
+JOIN categories       c  ON p.category_id = c.id
+WHERE o.status      = 'delivered'
+  AND o.created_at >= CURRENT_DATE - INTERVAL '30 days'
+GROUP BY c.id, c.name, p.id, p.name
+ORDER BY revenue DESC
+LIMIT 10;
+```
+
+</details>
+
+<details><summary>Query 2: Customer Lifetime Value</summary>
+
+```sql
+WITH customer_stats AS (
+  SELECT
+    u.id,
+    u.first_name || ' ' || u.last_name   AS full_name,
+    u.email,
+    COUNT(o.id)                           AS total_orders,
+    SUM(o.total_amount)                   AS lifetime_value,
+    AVG(o.total_amount)                   AS avg_order_value,
+    MIN(o.created_at)                     AS first_order_at,
+    MAX(o.created_at)                     AS last_order_at
+  FROM users u
+  JOIN orders o ON o.user_id = u.id
+  WHERE o.status NOT IN ('cancelled', 'refunded')
+  GROUP BY u.id, u.first_name, u.last_name, u.email
+)
+SELECT
+  full_name,
+  email,
+  total_orders,
+  lifetime_value,
+  ROUND(avg_order_value, 2)                        AS avg_order_value,
+  first_order_at::DATE                             AS first_order,
+  last_order_at::DATE                              AS last_order,
+  RANK() OVER (ORDER BY lifetime_value DESC)       AS clv_rank
+FROM customer_stats
+ORDER BY lifetime_value DESC
+LIMIT 20;
+```
+
+</details>
+
+<details><summary>Query 3: Inventory Low Stock Alert</summary>
+
+```sql
+SELECT
+  p.name                                        AS product,
+  pv.sku,
+  pv.size,
+  pv.color,
+  i.quantity_in_stock,
+  i.quantity_reserved,
+  (i.quantity_in_stock - i.quantity_reserved)   AS available_stock,
+  i.low_stock_threshold
+FROM inventory i
+JOIN product_variants pv ON i.variant_id  = pv.id
+JOIN products         p  ON pv.product_id = p.id
+WHERE (i.quantity_in_stock - i.quantity_reserved) <= i.low_stock_threshold
+  AND pv.is_active = true
+  AND p.is_active  = true
+ORDER BY available_stock ASC;
+```
+
+</details>
+
+<details><summary>Query 4: Review Statistics by Product</summary>
+
+```sql
+WITH category_avg AS (
+  SELECT p.category_id, AVG(r.rating) AS avg_rating
+  FROM reviews r
+  JOIN products p ON p.id = r.product_id
+  GROUP BY p.category_id
+)
+SELECT
+  p.name                                                        AS product,
+  c.name                                                        AS category,
+  COUNT(r.id)                                                   AS total_reviews,
+  ROUND(AVG(r.rating), 2)                                       AS avg_rating,
+  ROUND(AVG(r.rating) - ca.avg_rating, 2)                       AS vs_category_avg,
+  COUNT(r.id) FILTER (WHERE r.rating = 5)                       AS five_star,
+  COUNT(r.id) FILTER (WHERE r.rating = 4)                       AS four_star,
+  COUNT(r.id) FILTER (WHERE r.rating = 3)                       AS three_star,
+  COUNT(r.id) FILTER (WHERE r.rating <= 2)                      AS low_ratings,
+  COUNT(r.id) FILTER (WHERE r.is_verified = true)               AS verified_reviews
+FROM products p
+JOIN categories c        ON c.id = p.category_id
+LEFT JOIN category_avg ca ON ca.category_id = p.category_id
+LEFT JOIN reviews r      ON r.product_id = p.id
+WHERE p.is_active = true
+GROUP BY p.id, p.name, c.name, ca.avg_rating
+HAVING COUNT(r.id) >= 3
+ORDER BY avg_rating DESC, total_reviews DESC
+LIMIT 20;
+```
+
+</details>
+
+<details><summary>Query 5: Cart Abandonment Analysis</summary>
+
+```sql
+SELECT
+  u.email,
+  u.first_name || ' ' || u.last_name         AS full_name,
+  COUNT(ci.id)                                AS items_in_cart,
+  SUM(ci.quantity)                            AS total_quantity,
+  SUM(ci.quantity * (
+    p.base_price + pv.price_modifier
+  ))                                          AS estimated_cart_value,
+  c.updated_at                                AS last_activity
+FROM carts c
+JOIN users            u  ON c.user_id     = u.id
+JOIN cart_items       ci ON ci.cart_id    = c.id
+JOIN product_variants pv ON ci.variant_id = pv.id
+JOIN products         p  ON pv.product_id = p.id
+WHERE c.updated_at >= CURRENT_DATE - INTERVAL '7 days'
+  AND NOT EXISTS (
+    SELECT 1 FROM orders o
+    WHERE o.user_id = u.id
+      AND o.created_at > c.updated_at
+  )
+GROUP BY u.id, u.email, u.first_name, u.last_name, c.updated_at
+ORDER BY estimated_cart_value DESC;
+```
+
+</details>
+
+<details><summary>Query 6: Order Status Breakdown</summary>
+
+```sql
+WITH recent_orders AS (
+  SELECT id, status, total_amount
+  FROM orders
+  WHERE created_at >= CURRENT_DATE - INTERVAL '90 days'
+),
+time_in_status AS (
+  SELECT
+    h.to_status                                             AS status,
+    LEAD(h.changed_at) OVER (PARTITION BY h.order_id
+                             ORDER BY h.changed_at) - h.changed_at AS duration
+  FROM order_status_history h
+  JOIN recent_orders ro ON ro.id = h.order_id
+),
+avg_time AS (
+  SELECT status, AVG(duration) AS avg_duration
+  FROM time_in_status
+  WHERE duration IS NOT NULL
+  GROUP BY status
+)
+SELECT
+  ro.status,
+  COUNT(*)                                                  AS order_count,
+  SUM(ro.total_amount)                                      AS total_revenue,
+  ROUND(AVG(ro.total_amount), 2)                            AS avg_order_value,
+  ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (), 2)        AS percentage,
+  ROUND((EXTRACT(EPOCH FROM at.avg_duration) / 3600)::NUMERIC, 1)
+                                                            AS avg_hours_before_next_status
+FROM recent_orders ro
+LEFT JOIN avg_time at ON at.status = ro.status
+GROUP BY ro.status, at.avg_duration
+ORDER BY order_count DESC;
+```
+
+</details>
+
+<details><summary>Query 7: Category Hierarchy with Product Counts</summary>
+
+```sql
+WITH RECURSIVE category_tree AS (
+  SELECT
+    id,
+    name,
+    parent_id,
+    0           AS depth,
+    name::TEXT  AS path,
+    ARRAY[id]   AS ancestors
+  FROM categories
+  WHERE parent_id IS NULL
+
+  UNION ALL
+
+  SELECT
+    c.id,
+    c.name,
+    c.parent_id,
+    ct.depth + 1,
+    ct.path || ' > ' || c.name,
+    ct.ancestors || c.id
+  FROM categories c
+  JOIN category_tree ct ON c.parent_id = ct.id
+),
+direct_counts AS (
+  SELECT
+    category_id,
+    COUNT(*)                                AS products,
+    COUNT(*) FILTER (WHERE is_active)       AS active_products
+  FROM products
+  GROUP BY category_id
+),
+rollup AS (
+  SELECT
+    anc.id                                  AS category_id,
+    SUM(dc.products)                        AS products,
+    SUM(dc.active_products)                 AS active_products
+  FROM category_tree d
+  CROSS JOIN LATERAL unnest(d.ancestors) AS anc(id)
+  JOIN direct_counts dc ON dc.category_id = d.id
+  GROUP BY anc.id
+)
+SELECT
+  ct.path,
+  ct.depth,
+  COALESCE(dc.products, 0)                  AS direct_products,
+  COALESCE(r.products, 0)                   AS total_products,
+  COALESCE(r.active_products, 0)            AS total_active_products
+FROM category_tree ct
+LEFT JOIN direct_counts dc ON dc.category_id = ct.id
+LEFT JOIN rollup        r  ON r.category_id  = ct.id
+ORDER BY ct.path;
+```
+
+</details>
+
+<details><summary>Query 8: User Purchase History</summary>
+
+```sql
+WITH user_orders AS (
+  SELECT
+    u.id                                              AS user_id,
+    u.first_name || ' ' || u.last_name               AS full_name,
+    o.id                                              AS order_id,
+    o.status,
+    o.total_amount,
+    o.created_at
+  FROM users u
+  JOIN orders o ON o.user_id = u.id
+  WHERE u.id = 123
+    AND o.status NOT IN ('cancelled', 'refunded')
+)
+SELECT
+  full_name,
+  order_id,
+  status,
+  total_amount,
+  created_at::DATE                                    AS order_date,
+  SUM(total_amount)  OVER (PARTITION BY user_id
+                           ORDER BY created_at)       AS running_total,
+  ROW_NUMBER()       OVER (PARTITION BY user_id
+                           ORDER BY created_at)       AS order_number,
+  total_amount - LAG(total_amount) OVER (PARTITION BY user_id
+                           ORDER BY created_at)       AS change_vs_previous
+FROM user_orders
+ORDER BY created_at DESC;
+```
+
+</details>
+
+<details><summary>Query 9: Promotion Usage Report</summary>
+
+```sql
+SELECT
+  pr.code,
+  pr.discount_type,
+  pr.discount_value,
+  pr.max_uses,
+  COUNT(o.id)                                       AS times_used,
+  CASE
+    WHEN pr.max_uses IS NULL THEN NULL
+    ELSE ROUND(COUNT(o.id) * 100.0 / pr.max_uses, 2)
+  END                                               AS usage_percentage,
+  COALESCE(SUM(o.discount_amount), 0)               AS total_discount_given,
+  COALESCE(SUM(o.total_amount), 0)                  AS revenue_with_promo,
+  pr.expires_at::DATE                               AS expires_on
+FROM orders o
+RIGHT JOIN promotions pr ON o.promotion_id = pr.id
+                        AND o.status NOT IN ('cancelled', 'refunded')
+GROUP BY pr.id, pr.code, pr.discount_type, pr.discount_value,
+         pr.max_uses, pr.expires_at
+ORDER BY times_used DESC;
+```
+
+</details>
+
+<details><summary>Query 10: Revenue by Time Period</summary>
+
+```sql
+WITH monthly_revenue AS (
+  SELECT
+    DATE_TRUNC('month', created_at)   AS month,
+    COUNT(*)                           AS order_count,
+    SUM(total_amount)                  AS revenue,
+    SUM(discount_amount)               AS total_discounts
+  FROM orders
+  WHERE status NOT IN ('cancelled', 'refunded')
+  GROUP BY DATE_TRUNC('month', created_at)
+)
+SELECT
+  TO_CHAR(month, 'YYYY-MM')           AS month,
+  order_count,
+  revenue,
+  total_discounts,
+  ROUND(
+    (revenue - LAG(revenue) OVER (ORDER BY month))
+    * 100.0
+    / NULLIF(LAG(revenue) OVER (ORDER BY month), 0),
+  2)                                  AS mom_growth_pct
+FROM monthly_revenue
+ORDER BY month;
+```
+
+</details>
+
+## Appendix B. EXPLAIN ANALYZE excerpts
+
+Taken from the saved plans in `benchmarks/before/` and `benchmarks/after/` (performance-size data). Planner cost numbers are removed to keep lines short; `est rows` is the planner's estimate, `rows` the actual count. The `Execution Time` lines come from the single fully-timed run saved with each plan, which carries per-node timing overhead; the measured figures are the 15-run `TIMING OFF` results in section 2.
+
+**Q8 before V002**: sequential scan reads all 100K orders to find 14:
+
+```
+Sort  (est rows=20) (actual time=24.848..24.850 rows=14.00 loops=1)
+  Sort Key: o.created_at DESC
+  Sort Method: quicksort  Memory: 26kB
+  ->  WindowAgg  (est rows=20) (actual time=24.786..24.807 rows=14.00 loops=1)
+        Window: w1 AS (ORDER BY o.created_at)
+        ->  Sort  (est rows=20) (actual time=24.724..24.727 rows=14.00 loops=1)
+              Sort Key: o.created_at
+              Sort Method: quicksort  Memory: 25kB
+              ->  Nested Loop  (est rows=20) (actual time=3.951..24.656 rows=14.00 loops=1)
+                    ->  Index Scan using users_pkey on users u  (est rows=1) (actual time=0.051..0.057 rows=1.00 loops=1)
+                          Index Cond: (id = 123)
+                    ->  Seq Scan on orders o  (est rows=20) (actual time=3.892..24.561 rows=14.00 loops=1)
+                          Filter: (((status)::text <> ALL ('{cancelled,refunded}'::text[])) AND (user_id = 123))
+                          Rows Removed by Filter: 99986
+Planning Time: 12.176 ms
+Execution Time: 25.048 ms
+```
+
+**Q8 after V002**: bitmap index scan on `idx_orders_user_created` touches 15 rows:
+
+```
+Sort  (est rows=3) (actual time=0.621..0.626 rows=14.00 loops=1)
+  Sort Key: o.created_at DESC
+  Sort Method: quicksort  Memory: 26kB
+  ->  WindowAgg  (est rows=3) (actual time=0.510..0.552 rows=14.00 loops=1)
+        Window: w1 AS (ORDER BY o.created_at)
+        ->  Sort  (est rows=3) (actual time=0.398..0.403 rows=14.00 loops=1)
+              Sort Key: o.created_at
+              Sort Method: quicksort  Memory: 25kB
+              ->  Nested Loop  (est rows=3) (actual time=0.197..0.356 rows=14.00 loops=1)
+                    ->  Index Scan using users_pkey on users u  (est rows=1) (actual time=0.074..0.077 rows=1.00 loops=1)
+                          Index Cond: (id = 123)
+                    ->  Bitmap Heap Scan on orders o  (est rows=3) (actual time=0.116..0.263 rows=14.00 loops=1)
+                          Recheck Cond: (user_id = 123)
+                          Filter: ((status)::text <> ALL ('{cancelled,refunded}'::text[]))
+                          Rows Removed by Filter: 1
+                          ->  Bitmap Index Scan on idx_orders_user_created  (est rows=3) (actual time=0.049..0.050 rows=15.00 loops=1)
+                                Index Cond: (user_id = 123)
+Planning Time: 51.857 ms
+Execution Time: 1.811 ms
+```
+
+**Q5 first draft**: the anti-join (`Parallel Hash Right Join`) is estimated at 1 row but returns 9,259 (2 parallel workers x 4,629.5), so the planner chooses nested loops that then run 9,259 and 18,633 times:
+
+```
+        ->  Nested Loop  (est rows=1) (actual time=336.008..964.575 rows=18633.00 loops=1)
+              ->  Nested Loop  (est rows=1) (actual time=335.972..715.247 rows=18633.00 loops=1)
+                    ->  Nested Loop  (est rows=1) (actual time=335.930..490.781 rows=18633.00 loops=1)
+                                      ->  Parallel Hash Right Join  (est rows=1) (actual time=194.366..197.054 rows=4629.50 loops=2)
+                          ->  Index Scan using cart_items_cart_id_variant_id_key on cart_items ci  (est rows=3) (actual time=0.010..0.012 rows=2.01 loops=9259)
+                    ->  Index Scan using product_variants_pkey on product_variants pv  (est rows=1) (actual time=0.009..0.009 rows=1.00 loops=18633)
+              ->  Index Scan using products_pkey on products p  (est rows=1) (actual time=0.010..0.010 rows=1.00 loops=18633)
+Execution Time: 1077.350 ms
+```
+
+**Q5 rewritten (`NOT EXISTS`)**: a real anti-join with hash joins, and an index-only scan for the probe:
+
+```
+        ->  Hash Join  (est rows=14863) (actual time=160.038..243.666 rows=18633.00 loops=1)
+              ->  Hash Join  (est rows=14863) (actual time=153.688..217.219 rows=18633.00 loops=1)
+                    ->  Hash Join  (est rows=14863) (actual time=125.994..168.092 rows=18633.00 loops=1)
+                                ->  Hash Right Anti Join  (est rows=7405) (actual time=116.675..120.256 rows=9259.00 loops=1)
+                                      ->  Index Only Scan using idx_orders_user_created on orders o  (est rows=100000) (actual time=0.079..23.917 rows=100000.00 loops=1)
+                                            ->  Hash Join  (est rows=9559) (actual time=8.035..55.904 rows=9554.00 loops=1)
+Execution Time: 310.513 ms
+```
+
+**Q6 at default `work_mem` (4MB)**: the window sort spills to disk (`external merge Disk: 3200kB`):
+
+```
+  Sort Method: quicksort  Memory: 25kB
+  ->  WindowAgg  (est rows=36) (actual time=615.403..615.427 rows=6.00 loops=1)
+                                            ->  WindowAgg  (est rows=114072) (actual time=404.391..521.033 rows=105303.00 loops=1)
+                                                        Sort Key: h.order_id, h.changed_at
+                                                        Sort Method: external merge  Disk: 3200kB
+```
+
+**Q6b with `work_mem = 16MB`**: the same sort runs in memory (`quicksort Memory: 7186kB`). Measured over 15 runs: 830 → 607 ms median, temp I/O 801 blocks → 0:
+
+```
+  Sort Method: quicksort  Memory: 25kB
+  ->  WindowAgg  (est rows=36) (actual time=663.504..663.526 rows=6.00 loops=1)
+                                            ->  WindowAgg  (est rows=114072) (actual time=324.417..536.949 rows=105303.00 loops=1)
+                                                        Sort Key: h.order_id, h.changed_at
+                                                        Sort Method: quicksort  Memory: 7186kB
+```
+
+## Appendix C. ERD in text form
+
+The same schema as `lakshitha-month3-erd.png`, generated from the live database by `python tools/build_erd.py --mermaid`. GitHub renders it as a diagram. Composite and partial indexes are not expressible in Mermaid; they are listed in the PNG and in section 4.
+
+```mermaid
+erDiagram
+  users ||--o{ addresses : "user_id"
+  product_variants ||--o{ cart_items : "variant_id"
+  carts ||--o{ cart_items : "cart_id"
+  users ||--o| carts : "user_id"
+  categories |o--o{ categories : "parent_id"
+  product_variants ||--o| inventory : "variant_id"
+  orders ||--o{ order_items : "order_id"
+  product_variants ||--o{ order_items : "variant_id"
+  orders ||--o{ order_status_history : "order_id"
+  addresses ||--o{ orders : "address_id"
+  users ||--o{ orders : "user_id"
+  payment_methods |o--o{ orders : "payment_method_id"
+  promotions |o--o{ orders : "promotion_id"
+  addresses |o--o{ payment_methods : "billing_address_id"
+  users ||--o{ payment_methods : "user_id"
+  products ||--o{ product_variants : "product_id"
+  categories |o--o{ products : "category_id"
+  products ||--o{ reviews : "product_id"
+  users ||--o{ reviews : "user_id"
+  product_variants ||--o{ wishlist_items : "variant_id"
+  users ||--o{ wishlist_items : "user_id"
+  addresses {
+    SERIAL id PK "not null"
+    INTEGER user_id FK "not null, indexed"
+    VARCHAR type "20, not null"
+    VARCHAR address_line1 "255, not null"
+    VARCHAR address_line2 "255"
+    VARCHAR city "100, not null"
+    VARCHAR state "100"
+    VARCHAR postal_code "20, not null"
+    VARCHAR country "100, not null"
+    BOOLEAN is_default "not null"
+    TIMESTAMP created_at "not null"
+  }
+  cart_items {
+    SERIAL id PK "not null"
+    INTEGER cart_id FK "not null"
+    INTEGER variant_id FK "not null, indexed"
+    INTEGER quantity "not null"
+    TIMESTAMP added_at "not null"
+  }
+  carts {
+    SERIAL id PK "not null"
+    INTEGER user_id FK, UK "not null"
+    TIMESTAMP created_at "not null"
+    TIMESTAMP updated_at "not null, indexed"
+  }
+  categories {
+    SERIAL id PK "not null"
+    INTEGER parent_id FK "indexed"
+    VARCHAR name "100, not null"
+    VARCHAR slug UK "100, not null"
+    TEXT description
+    BOOLEAN is_active "not null"
+    TIMESTAMP created_at "not null"
+  }
+  inventory {
+    SERIAL id PK "not null"
+    INTEGER variant_id FK, UK "not null"
+    INTEGER quantity_in_stock "not null"
+    INTEGER quantity_reserved "not null"
+    INTEGER low_stock_threshold "not null"
+    TIMESTAMP updated_at "not null"
+  }
+  order_items {
+    SERIAL id PK "not null"
+    INTEGER order_id FK "not null"
+    INTEGER variant_id FK "not null, indexed"
+    INTEGER quantity "not null"
+    DECIMAL unit_price "10,2, not null"
+    DECIMAL total_price "12,2, not null"
+  }
+  order_status_history {
+    SERIAL id PK "not null"
+    INTEGER order_id FK "not null"
+    VARCHAR from_status "30"
+    VARCHAR to_status "30, not null"
+    TIMESTAMP changed_at "not null"
+    TEXT note
+  }
+  orders {
+    SERIAL id PK "not null"
+    INTEGER user_id FK "not null"
+    INTEGER address_id FK "not null, indexed"
+    INTEGER payment_method_id FK "indexed"
+    INTEGER promotion_id FK
+    VARCHAR status "30, not null"
+    DECIMAL subtotal "12,2, not null"
+    DECIMAL discount_amount "12,2, not null"
+    DECIMAL tax_amount "12,2, not null"
+    DECIMAL total_amount "12,2, not null"
+    TEXT notes
+    TIMESTAMP created_at "not null, indexed"
+    TIMESTAMP updated_at "not null"
+  }
+  payment_methods {
+    SERIAL id PK "not null"
+    INTEGER user_id FK "not null, indexed"
+    INTEGER billing_address_id FK
+    VARCHAR method_type "20, not null"
+    VARCHAR provider "50, not null"
+    VARCHAR provider_token UK "255, not null"
+    CHAR last4 "4"
+    SMALLINT exp_month
+    SMALLINT exp_year
+    BOOLEAN is_default "not null"
+    TIMESTAMP created_at "not null"
+  }
+  product_variants {
+    SERIAL id PK "not null"
+    INTEGER product_id FK "not null, indexed"
+    VARCHAR sku UK "100, not null"
+    VARCHAR size "50"
+    VARCHAR color "50"
+    DECIMAL price_modifier "10,2, not null"
+    BOOLEAN is_active "not null"
+    TIMESTAMP created_at "not null"
+  }
+  products {
+    SERIAL id PK "not null"
+    INTEGER category_id FK "indexed"
+    VARCHAR name "255, not null"
+    VARCHAR slug UK "255, not null"
+    TEXT description
+    DECIMAL base_price "10,2, not null"
+    BOOLEAN is_active "not null"
+    TIMESTAMP created_at "not null"
+    TIMESTAMP updated_at "not null"
+  }
+  promotions {
+    SERIAL id PK "not null"
+    VARCHAR code UK "50, not null"
+    TEXT description
+    VARCHAR discount_type "20, not null"
+    DECIMAL discount_value "10,2, not null"
+    DECIMAL min_order_amount "10,2, not null"
+    INTEGER max_uses
+    INTEGER used_count "not null"
+    TIMESTAMP starts_at "not null"
+    TIMESTAMP expires_at
+    BOOLEAN is_active "not null"
+    TIMESTAMP created_at "not null"
+  }
+  reviews {
+    SERIAL id PK "not null"
+    INTEGER user_id FK "not null"
+    INTEGER product_id FK "not null, indexed"
+    SMALLINT rating "not null"
+    VARCHAR title "255"
+    TEXT body
+    BOOLEAN is_verified "not null"
+    TIMESTAMP created_at "not null"
+  }
+  users {
+    SERIAL id PK "not null"
+    VARCHAR email UK "255, not null"
+    VARCHAR password_hash "255, not null"
+    VARCHAR first_name "100, not null"
+    VARCHAR last_name "100, not null"
+    VARCHAR phone "20"
+    BOOLEAN is_active "not null"
+    TIMESTAMP created_at "not null"
+    TIMESTAMP updated_at "not null"
+  }
+  wishlist_items {
+    SERIAL id PK "not null"
+    INTEGER user_id FK "not null"
+    INTEGER variant_id FK "not null, indexed"
+    TIMESTAMP added_at "not null"
+  }
+```

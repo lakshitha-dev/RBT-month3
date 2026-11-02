@@ -1,0 +1,74 @@
+-- Query 7: Category Hierarchy with Product Counts
+-- 15 runs (TIMING OFF): median 7.664 ms, min 6.436 ms
+-- all runs (ms): 6.436, 6.522, 6.565, 6.851, 7.115, 7.290, 7.617, 7.664, 7.835, 9.154, 9.369, 9.500, 10.947, 11.302, 11.390
+-- buffers (whole query): shared hit=206
+-- plan below: one extra run with per-node timing (adds overhead)
+
+Sort  (cost=512.61..513.71 rows=441 width=108) (actual time=7.483..7.502 rows=54.00 loops=1)
+  Sort Key: ct.path
+  Sort Method: quicksort  Memory: 28kB
+  Buffers: shared hit=206
+  CTE category_tree
+    ->  Recursive Union  (cost=0.00..67.73 rows=441 width=86) (actual time=0.102..0.404 rows=54.00 loops=1)
+          Storage: Memory  Maximum Storage: 37kB
+          Buffers: shared hit=4
+          ->  Seq Scan on categories  (cost=0.00..1.54 rows=11 width=86) (actual time=0.097..0.113 rows=11.00 loops=1)
+                Filter: (parent_id IS NULL)
+                Rows Removed by Filter: 43
+                Buffers: shared hit=1
+          ->  Hash Join  (cost=3.58..6.18 rows=43 width=86) (actual time=0.059..0.077 rows=14.33 loops=3)
+                Hash Cond: (c.parent_id = ct_1.id)
+                Buffers: shared hit=3
+                ->  Seq Scan on categories c  (cost=0.00..1.54 rows=54 width=18) (actual time=0.015..0.019 rows=54.00 loops=3)
+                      Buffers: shared hit=3
+                ->  Hash  (cost=2.20..2.20 rows=110 width=72) (actual time=0.018..0.018 rows=18.00 loops=3)
+                      Buckets: 1024  Batches: 1  Memory Usage: 12kB
+                      ->  WorkTable Scan on category_tree ct_1  (cost=0.00..2.20 rows=110 width=72) (actual time=0.004..0.008 rows=18.00 loops=3)
+  CTE direct_counts
+    ->  HashAggregate  (cost=374.03..374.43 rows=40 width=20) (actual time=5.945..5.966 rows=40.00 loops=1)
+          Group Key: products.category_id
+          Batches: 1  Memory Usage: 32kB
+          Buffers: shared hit=199
+          ->  Seq Scan on products  (cost=0.00..299.02 rows=10002 width=5) (actual time=0.030..1.751 rows=10002.00 loops=1)
+                Buffers: shared hit=199
+  ->  Hash Left Join  (cost=38.55..51.08 rows=441 width=108) (actual time=7.069..7.150 rows=54.00 loops=1)
+        Hash Cond: (ct.id = r.category_id)
+        Buffers: shared hit=203
+        ->  Hash Left Join  (cost=1.30..12.65 rows=441 width=48) (actual time=6.169..6.221 rows=54.00 loops=1)
+              Hash Cond: (ct.id = dc.category_id)
+              Buffers: shared hit=200
+              ->  CTE Scan on category_tree ct  (cost=0.00..8.82 rows=441 width=40) (actual time=0.107..0.123 rows=54.00 loops=1)
+                    Storage: Memory  Maximum Storage: 22kB
+                    Buffers: shared hit=1
+              ->  Hash  (cost=0.80..0.80 rows=40 width=12) (actual time=6.035..6.039 rows=40.00 loops=1)
+                    Buckets: 1024  Batches: 1  Memory Usage: 10kB
+                    Buffers: shared hit=199
+                    ->  CTE Scan on direct_counts dc  (cost=0.00..0.80 rows=40 width=12) (actual time=5.954..5.995 rows=40.00 loops=1)
+                          Storage: Memory  Maximum Storage: 18kB
+                          Buffers: shared hit=199
+        ->  Hash  (cost=37.12..37.12 rows=10 width=68) (actual time=0.879..0.885 rows=53.00 loops=1)
+              Buckets: 1024  Batches: 1  Memory Usage: 11kB
+              Buffers: shared hit=3
+              ->  Subquery Scan on r  (cost=36.87..37.12 rows=10 width=68) (actual time=0.663..0.859 rows=53.00 loops=1)
+                    Buffers: shared hit=3
+                    ->  HashAggregate  (cost=36.87..37.02 rows=10 width=68) (actual time=0.662..0.848 rows=53.00 loops=1)
+                          Group Key: anc.id
+                          Batches: 1  Memory Usage: 56kB
+                          Buffers: shared hit=3
+                          ->  Nested Loop  (cost=1.30..30.26 rows=882 width=20) (actual time=0.227..0.550 rows=83.00 loops=1)
+                                Buffers: shared hit=3
+                                ->  Hash Join  (cost=1.30..12.65 rows=88 width=48) (actual time=0.199..0.412 rows=40.00 loops=1)
+                                      Hash Cond: (d.id = dc_1.category_id)
+                                      Buffers: shared hit=3
+                                      ->  CTE Scan on category_tree d  (cost=0.00..8.82 rows=441 width=36) (actual time=0.001..0.342 rows=54.00 loops=1)
+                                            Storage: Memory  Maximum Storage: 22kB
+                                            Buffers: shared hit=3
+                                      ->  Hash  (cost=0.80..0.80 rows=40 width=20) (actual time=0.027..0.028 rows=40.00 loops=1)
+                                            Buckets: 1024  Batches: 1  Memory Usage: 11kB
+                                            ->  CTE Scan on direct_counts dc_1  (cost=0.00..0.80 rows=40 width=20) (actual time=0.001..0.011 rows=40.00 loops=1)
+                                                  Storage: Memory  Maximum Storage: 18kB
+                                ->  Function Scan on unnest anc  (cost=0.00..0.10 rows=10 width=4) (actual time=0.002..0.002 rows=2.08 loops=40)
+Planning:
+  Buffers: shared hit=252
+Planning Time: 32.492 ms
+Execution Time: 8.348 ms

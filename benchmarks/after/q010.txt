@@ -1,0 +1,29 @@
+-- Query 10: Revenue by Time Period
+-- 15 runs (TIMING OFF): median 358.682 ms, min 218.017 ms
+-- all runs (ms): 218.017, 274.824, 294.044, 294.333, 301.038, 311.700, 339.390, 358.682, 413.733, 434.348, 515.905, 566.538, 577.497, 721.161, 1070.840
+-- buffers (whole query): shared hit=2506, temp read=302 written=303
+-- plan below: one extra run with per-node timing (adds overhead)
+
+Sort  (cost=29395.44..29610.43 rows=85997 width=144) (actual time=330.750..330.755 rows=36.00 loops=1)
+  Sort Key: (to_char((date_trunc('month'::text, orders.created_at)), 'YYYY-MM'::text))
+  Sort Method: quicksort  Memory: 27kB
+  Buffers: shared hit=2506, temp read=302 written=303
+  ->  WindowAgg  (cost=11013.35..16173.13 rows=85997 width=144) (actual time=195.799..330.532 rows=36.00 loops=1)
+        Window: w1 AS (ORDER BY (date_trunc('month'::text, orders.created_at)))
+        Storage: Memory  Maximum Storage: 17kB
+        Buffers: shared hit=2503, temp read=302 written=303
+        ->  GroupAggregate  (cost=11013.31..13593.22 rows=85997 width=80) (actual time=195.046..328.851 rows=36.00 loops=1)
+              Group Key: (date_trunc('month'::text, orders.created_at))
+              Buffers: shared hit=2503, temp read=302 written=303
+              ->  Sort  (cost=11013.31..11228.30 rows=85997 width=17) (actual time=194.957..244.002 rows=86121.00 loops=1)
+                    Sort Key: (date_trunc('month'::text, orders.created_at))
+                    Sort Method: external merge  Disk: 2416kB
+                    Buffers: shared hit=2503, temp read=302 written=303
+                    ->  Seq Scan on orders  (cost=0.00..3964.99 rows=85997 width=17) (actual time=3.026..102.620 rows=86121.00 loops=1)
+                          Filter: ((status)::text <> ALL ('{cancelled,refunded}'::text[]))
+                          Rows Removed by Filter: 13879
+                          Buffers: shared hit=2500
+Planning:
+  Buffers: shared hit=223
+Planning Time: 23.530 ms
+Execution Time: 460.159 ms

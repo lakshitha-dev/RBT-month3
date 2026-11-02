@@ -1,0 +1,37 @@
+-- Query 3: Inventory Low Stock Alert
+-- 15 runs (TIMING OFF): median 73.112 ms, min 40.584 ms
+-- all runs (ms): 40.584, 43.433, 47.794, 64.597, 66.809, 69.101, 71.012, 73.112, 97.606, 98.647, 99.392, 129.064, 135.532, 155.958, 313.402
+-- buffers (whole query): shared hit=894
+-- plan below: one extra run with per-node timing (adds overhead)
+
+Sort  (cost=2631.79..2660.80 rows=11603 width=62) (actual time=96.673..97.169 rows=4744.00 loops=1)
+  Sort Key: ((i.quantity_in_stock - i.quantity_reserved))
+  Sort Method: quicksort  Memory: 579kB
+  Buffers: shared hit=894
+  ->  Hash Join  (cost=915.61..1848.46 rows=11603 width=62) (actual time=15.560..88.714 rows=4744.00 loops=1)
+        Hash Cond: (pv.product_id = p.id)
+        Buffers: shared hit=891
+        ->  Hash Join  (cost=498.33..1369.96 rows=12267 width=37) (actual time=6.579..73.661 rows=5018.00 loops=1)
+              Hash Cond: (pv.id = i.variant_id)
+              Buffers: shared hit=692
+              ->  Seq Scan on product_variants pv  (cost=0.00..775.02 rows=36801 width=29) (actual time=0.044..46.253 rows=36762.00 loops=1)
+                    Filter: is_active
+                    Rows Removed by Filter: 3240
+                    Buffers: shared hit=375
+              ->  Hash  (cost=331.65..331.65 rows=13334 width=16) (actual time=6.378..6.380 rows=5460.00 loops=1)
+                    Buckets: 16384  Batches: 1  Memory Usage: 384kB
+                    Buffers: shared hit=317
+                    ->  Index Scan using idx_inventory_low_stock on inventory i  (cost=0.28..331.65 rows=13334 width=16) (actual time=0.072..4.390 rows=5460.00 loops=1)
+                          Index Searches: 1
+                          Buffers: shared hit=317
+        ->  Hash  (cost=299.02..299.02 rows=9461 width=29) (actual time=8.808..8.809 rows=9461.00 loops=1)
+              Buckets: 16384  Batches: 1  Memory Usage: 715kB
+              Buffers: shared hit=199
+              ->  Seq Scan on products p  (cost=0.00..299.02 rows=9461 width=29) (actual time=0.064..4.778 rows=9461.00 loops=1)
+                    Filter: is_active
+                    Rows Removed by Filter: 541
+                    Buffers: shared hit=199
+Planning:
+  Buffers: shared hit=265
+Planning Time: 63.156 ms
+Execution Time: 98.348 ms

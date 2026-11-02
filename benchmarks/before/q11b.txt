@@ -1,0 +1,36 @@
+-- Query 11b: Brief example rewritten - named columns, newest first
+-- 15 runs (TIMING OFF): median 38.387 ms, min 23.701 ms
+-- all runs (ms): 23.701, 23.953, 24.380, 25.044, 25.271, 26.689, 33.218, 38.387, 39.922, 40.805, 48.477, 53.007, 55.034, 56.726, 72.406
+-- buffers (whole query): shared hit=2834
+-- plan below: one extra run with per-node timing (adds overhead)
+
+Sort  (cost=4111.47..4111.65 rows=69 width=69) (actual time=29.682..29.691 rows=45.00 loops=1)
+  Sort Key: o.created_at DESC
+  Sort Method: quicksort  Memory: 29kB
+  Buffers: shared hit=2834
+  ->  Nested Loop  (cost=1.00..4109.37 rows=69 width=69) (actual time=5.497..29.514 rows=45.00 loops=1)
+        Buffers: shared hit=2831
+        ->  Nested Loop  (cost=0.71..4086.91 rows=69 width=48) (actual time=5.472..28.611 rows=45.00 loops=1)
+              Buffers: shared hit=2696
+              ->  Nested Loop  (cost=0.42..4065.25 rows=69 width=35) (actual time=5.435..27.771 rows=45.00 loops=1)
+                    Buffers: shared hit=2561
+                    ->  Seq Scan on orders o  (cost=0.00..3750.00 rows=23 width=21) (actual time=5.358..26.902 rows=15.00 loops=1)
+                          Filter: (user_id = 123)
+                          Rows Removed by Filter: 99985
+                          Buffers: shared hit=2500
+                    ->  Index Scan using order_items_order_id_variant_id_key on order_items oi  (cost=0.42..13.67 rows=4 width=18) (actual time=0.045..0.047 rows=3.00 loops=15)
+                          Index Cond: (order_id = o.id)
+                          Index Searches: 15
+                          Buffers: shared hit=61
+              ->  Index Scan using product_variants_pkey on product_variants pv  (cost=0.29..0.31 rows=1 width=21) (actual time=0.017..0.017 rows=1.00 loops=45)
+                    Index Cond: (id = oi.variant_id)
+                    Index Searches: 45
+                    Buffers: shared hit=135
+        ->  Index Scan using products_pkey on products p  (cost=0.29..0.33 rows=1 width=29) (actual time=0.018..0.018 rows=1.00 loops=45)
+              Index Cond: (id = pv.product_id)
+              Index Searches: 45
+              Buffers: shared hit=135
+Planning:
+  Buffers: shared hit=350
+Planning Time: 36.133 ms
+Execution Time: 29.886 ms

@@ -1,0 +1,62 @@
+-- Query 4: Review Statistics by Product
+-- 15 runs (TIMING OFF): median 1599.633 ms, min 973.464 ms
+-- all runs (ms): 973.464, 1015.865, 1053.245, 1144.136, 1266.952, 1466.513, 1537.135, 1599.633, 1773.285, 2070.502, 2116.691, 2626.793, 2729.159, 3368.997, 4612.209
+-- buffers (whole query): shared hit=19984, temp read=484 written=485
+-- plan below: one extra run with per-node timing (adds overhead)
+
+Limit  (cost=11901.56..48710.53 rows=20 width=155) (actual time=484.119..1150.033 rows=20.00 loops=1)
+  Buffers: shared hit=19984, temp read=484 written=485
+  ->  Result  (cost=11901.56..34827670.56 rows=18917 width=155) (actual time=484.112..1149.988 rows=20.00 loops=1)
+        Buffers: shared hit=19984, temp read=484 written=485
+        ->  Sort  (cost=11901.56..11948.85 rows=18917 width=155) (actual time=451.716..451.773 rows=20.00 loops=1)
+              Sort Key: (round(avg(r.rating), 2)) DESC, (count(r.id)) DESC
+              Sort Method: top-N heapsort  Memory: 31kB
+              Buffers: shared hit=964, temp read=484 written=485
+              ->  GroupAggregate  (cost=8513.34..11398.18 rows=18917 width=155) (actual time=264.600..418.131 rows=8524.00 loops=1)
+                    Group Key: p.id, c.name
+                    Filter: (count(r.id) >= 3)
+                    Rows Removed by Filter: 937
+                    Buffers: shared hit=958, temp read=484 written=485
+                    ->  Sort  (cost=8513.34..8655.22 rows=56751 width=50) (actual time=264.381..299.834 rows=59403.00 loops=1)
+                          Sort Key: p.id, c.name
+                          Sort Method: external merge  Disk: 3872kB
+                          Buffers: shared hit=958, temp read=484 written=485
+                          ->  Hash Join  (cost=419.50..2089.68 rows=56751 width=50) (actual time=7.045..147.033 rows=59403.00 loops=1)
+                                Hash Cond: (p.category_id = c.id)
+                                Buffers: shared hit=952
+                                ->  Hash Right Join  (cost=417.28..1926.80 rows=56751 width=40) (actual time=6.921..111.724 rows=59403.00 loops=1)
+                                      Hash Cond: (r.product_id = p.id)
+                                      Buffers: shared hit=951
+                                      ->  Seq Scan on reviews r  (cost=0.00..1351.96 rows=59996 width=11) (actual time=0.077..18.343 rows=59996.00 loops=1)
+                                            Buffers: shared hit=752
+                                      ->  Hash  (cost=299.02..299.02 rows=9461 width=33) (actual time=6.667..6.667 rows=9461.00 loops=1)
+                                            Buckets: 16384  Batches: 1  Memory Usage: 752kB
+                                            Buffers: shared hit=199
+                                            ->  Seq Scan on products p  (cost=0.00..299.02 rows=9461 width=33) (actual time=0.038..3.628 rows=9461.00 loops=1)
+                                                  Filter: is_active
+                                                  Rows Removed by Filter: 541
+                                                  Buffers: shared hit=199
+                                ->  Hash  (cost=1.54..1.54 rows=54 width=14) (actual time=0.100..0.102 rows=54.00 loops=1)
+                                      Buckets: 1024  Batches: 1  Memory Usage: 11kB
+                                      Buffers: shared hit=1
+                                      ->  Seq Scan on categories c  (cost=0.00..1.54 rows=54 width=14) (actual time=0.057..0.067 rows=54.00 loops=1)
+                                            Buffers: shared hit=1
+        SubPlan 1
+          ->  Aggregate  (cost=1840.42..1840.43 rows=1 width=32) (actual time=34.888..34.889 rows=1.00 loops=20)
+                Buffers: shared hit=19020
+                ->  Hash Join  (cost=327.15..1836.67 rows=1500 width=2) (actual time=4.085..34.385 rows=1531.60 loops=20)
+                      Hash Cond: (r2.product_id = p2.id)
+                      Buffers: shared hit=19020
+                      ->  Seq Scan on reviews r2  (cost=0.00..1351.96 rows=59996 width=6) (actual time=0.010..11.800 rows=59996.00 loops=20)
+                            Buffers: shared hit=15040
+                      ->  Hash  (cost=324.02..324.02 rows=250 width=4) (actual time=4.011..4.011 rows=255.40 loops=20)
+                            Buckets: 1024  Batches: 1  Memory Usage: 19kB
+                            Buffers: shared hit=3980
+                            ->  Seq Scan on products p2  (cost=0.00..324.02 rows=250 width=4) (actual time=0.024..3.861 rows=255.40 loops=20)
+                                  Filter: (category_id = p.category_id)
+                                  Rows Removed by Filter: 9747
+                                  Buffers: shared hit=3980
+Planning:
+  Buffers: shared hit=260
+Planning Time: 25.506 ms
+Execution Time: 1220.913 ms

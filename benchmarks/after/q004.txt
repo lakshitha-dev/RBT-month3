@@ -1,0 +1,70 @@
+-- Query 4: Review Statistics by Product
+-- 15 runs (TIMING OFF): median 929.313 ms, min 555.256 ms
+-- all runs (ms): 555.256, 617.323, 696.139, 741.992, 838.631, 855.419, 885.678, 929.313, 1021.933, 1059.516, 1426.259, 1463.765, 1758.682, 1798.984, 2265.720
+-- buffers (whole query): shared hit=78048
+-- plan below: one extra run with per-node timing (adds overhead)
+
+Limit  (cost=10555.56..45262.57 rows=20 width=155) (actual time=896.938..1537.203 rows=20.00 loops=1)
+  Buffers: shared hit=78048
+  ->  Result  (cost=10555.56..32838182.30 rows=18917 width=155) (actual time=896.934..1537.148 rows=20.00 loops=1)
+        Buffers: shared hit=78048
+        ->  Sort  (cost=10555.56..10602.85 rows=18917 width=155) (actual time=818.511..818.715 rows=20.00 loops=1)
+              Sort Key: (round(avg(r.rating), 2)) DESC, (count(r.id)) DESC
+              Sort Method: top-N heapsort  Memory: 31kB
+              Buffers: shared hit=60056
+              ->  GroupAggregate  (cost=1.40..10052.19 rows=18917 width=155) (actual time=5.279..802.319 rows=8524.00 loops=1)
+                    Group Key: p.id, c.name
+                    Filter: (count(r.id) >= 3)
+                    Rows Removed by Filter: 937
+                    Buffers: shared hit=60050
+                    ->  Incremental Sort  (cost=1.40..7309.22 rows=56751 width=50) (actual time=4.256..637.501 rows=59403.00 loops=1)
+                          Sort Key: p.id, c.name
+                          Presorted Key: p.id
+                          Full-sort Groups: 1657  Sort Method: quicksort  Average Memory: 29kB  Peak Memory: 29kB
+                          Pre-sorted Groups: 8  Sort Method: quicksort  Average Memory: 42kB  Peak Memory: 42kB
+                          Buffers: shared hit=60050
+                          ->  Merge Left Join  (cost=0.73..5677.23 rows=56751 width=50) (actual time=0.099..494.826 rows=59403.00 loops=1)
+                                Merge Cond: (p.id = r.product_id)
+                                Buffers: shared hit=60047
+                                ->  Nested Loop  (cost=0.44..714.06 rows=9461 width=43) (actual time=0.062..102.236 rows=9461.00 loops=1)
+                                      Buffers: shared hit=326
+                                      ->  Index Scan using products_pkey on products p  (cost=0.29..473.57 rows=9461 width=33) (actual time=0.031..40.235 rows=9461.00 loops=1)
+                                            Filter: is_active
+                                            Rows Removed by Filter: 541
+                                            Index Searches: 1
+                                            Buffers: shared hit=246
+                                      ->  Memoize  (cost=0.15..0.17 rows=1 width=14) (actual time=0.005..0.005 rows=1.00 loops=9461)
+                                            Cache Key: p.category_id
+                                            Cache Mode: logical
+                                            Hits: 9421  Misses: 40  Evictions: 0  Overflows: 0  Memory Usage: 5kB
+                                            Buffers: shared hit=80
+                                            ->  Index Scan using categories_pkey on categories c  (cost=0.14..0.16 rows=1 width=14) (actual time=0.005..0.005 rows=1.00 loops=40)
+                                                  Index Cond: (id = p.category_id)
+                                                  Index Searches: 40
+                                                  Buffers: shared hit=80
+                                ->  Index Scan using idx_reviews_product on reviews r  (cost=0.29..4222.02 rows=59996 width=11) (actual time=0.031..298.704 rows=59996.00 loops=1)
+                                      Index Searches: 1
+                                      Buffers: shared hit=59721
+        SubPlan 1
+          ->  Aggregate  (cost=1735.32..1735.33 rows=1 width=32) (actual time=35.889..35.889 rows=1.00 loops=20)
+                Buffers: shared hit=17992
+                ->  Hash Join  (cost=222.05..1731.57 rows=1500 width=2) (actual time=5.761..35.280 rows=1531.60 loops=20)
+                      Hash Cond: (r2.product_id = p2.id)
+                      Buffers: shared hit=17992
+                      ->  Seq Scan on reviews r2  (cost=0.00..1351.96 rows=59996 width=6) (actual time=2.299..15.722 rows=59996.00 loops=20)
+                            Buffers: shared hit=15040
+                      ->  Hash  (cost=218.93..218.93 rows=250 width=4) (actual time=3.390..3.390 rows=255.40 loops=20)
+                            Buckets: 1024  Batches: 1  Memory Usage: 19kB
+                            Buffers: shared hit=2952
+                            ->  Bitmap Heap Scan on products p2  (cost=6.22..218.93 rows=250 width=4) (actual time=1.068..3.097 rows=255.40 loops=20)
+                                  Recheck Cond: (category_id = p.category_id)
+                                  Heap Blocks: exact=2910
+                                  Buffers: shared hit=2952
+                                  ->  Bitmap Index Scan on idx_products_category  (cost=0.00..6.16 rows=250 width=0) (actual time=1.017..1.018 rows=255.40 loops=20)
+                                        Index Cond: (category_id = p.category_id)
+                                        Index Searches: 20
+                                        Buffers: shared hit=42
+Planning:
+  Buffers: shared hit=309
+Planning Time: 59.812 ms
+Execution Time: 1537.913 ms

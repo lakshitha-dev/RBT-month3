@@ -1,0 +1,32 @@
+-- Query 11: Brief example - one user's orders with all columns
+-- 15 runs (TIMING OFF): median 33.930 ms, min 24.117 ms
+-- all runs (ms): 24.117, 24.936, 26.079, 26.158, 30.965, 31.961, 32.138, 33.930, 34.460, 41.466, 41.785, 68.376, 73.080, 81.020, 360.627
+-- buffers (whole query): shared hit=2831
+-- plan below: one extra run with per-node timing (adds overhead)
+
+Nested Loop  (cost=1.00..4109.37 rows=69 width=291) (actual time=4.721..29.339 rows=45.00 loops=1)
+  Buffers: shared hit=2831
+  ->  Nested Loop  (cost=0.71..4086.91 rows=69 width=160) (actual time=4.689..28.669 rows=45.00 loops=1)
+        Buffers: shared hit=2696
+        ->  Nested Loop  (cost=0.42..4065.25 rows=69 width=117) (actual time=4.646..27.799 rows=45.00 loops=1)
+              Buffers: shared hit=2561
+              ->  Seq Scan on orders o  (cost=0.00..3750.00 rows=23 width=89) (actual time=4.529..26.774 rows=15.00 loops=1)
+                    Filter: (user_id = 123)
+                    Rows Removed by Filter: 99985
+                    Buffers: shared hit=2500
+              ->  Index Scan using order_items_order_id_variant_id_key on order_items oi  (cost=0.42..13.67 rows=4 width=28) (actual time=0.035..0.037 rows=3.00 loops=15)
+                    Index Cond: (order_id = o.id)
+                    Index Searches: 15
+                    Buffers: shared hit=61
+        ->  Index Scan using product_variants_pkey on product_variants pv  (cost=0.29..0.31 rows=1 width=43) (actual time=0.017..0.017 rows=1.00 loops=45)
+              Index Cond: (id = oi.variant_id)
+              Index Searches: 45
+              Buffers: shared hit=135
+  ->  Index Scan using products_pkey on products p  (cost=0.29..0.33 rows=1 width=131) (actual time=0.013..0.013 rows=1.00 loops=45)
+        Index Cond: (id = pv.product_id)
+        Index Searches: 45
+        Buffers: shared hit=135
+Planning:
+  Buffers: shared hit=434
+Planning Time: 58.791 ms
+Execution Time: 29.709 ms

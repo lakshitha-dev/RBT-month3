@@ -1,0 +1,72 @@
+-- Query 5: Cart Abandonment Analysis
+-- 15 runs (TIMING OFF): median 1056.138 ms, min 613.587 ms
+-- all runs (ms): 613.587, 635.696, 750.787, 921.252, 957.047, 1018.791, 1028.764, 1056.138, 1190.739, 1272.696, 1291.472, 1441.252, 1495.112, 1636.386, 1726.522
+-- buffers (whole query): shared hit=141586
+-- plan below: one extra run with per-node timing (adds overhead)
+
+Sort  (cost=6508.72..6508.72 rows=1 width=133) (actual time=1072.331..1074.056 rows=7450.00 loops=1)
+  Sort Key: (sum(((ci.quantity)::numeric * (p.base_price + pv.price_modifier)))) DESC
+  Sort Method: quicksort  Memory: 1034kB
+  Buffers: shared hit=141775
+  ->  GroupAggregate  (cost=6508.18..6508.71 rows=1 width=133) (actual time=336.174..1054.367 rows=7450.00 loops=1)
+        Group Key: u.email, c.updated_at
+        Buffers: shared hit=141772
+        ->  Nested Loop  (cost=6508.18..6508.67 rows=1 width=72) (actual time=336.008..964.575 rows=18633.00 loops=1)
+              Buffers: shared hit=141772
+              ->  Nested Loop  (cost=6507.89..6508.34 rows=1 width=70) (actual time=335.972..715.247 rows=18633.00 loops=1)
+                    Buffers: shared hit=85873
+                    ->  Nested Loop  (cost=6507.60..6508.00 rows=1 width=65) (actual time=335.930..490.781 rows=18633.00 loops=1)
+                          Buffers: shared hit=29974
+                          ->  Gather Merge  (cost=6507.31..6507.43 rows=1 width=57) (actual time=335.834..344.719 rows=9259.00 loops=1)
+                                Workers Planned: 1
+                                Workers Launched: 1
+                                Buffers: shared hit=3933
+                                ->  Sort  (cost=5507.30..5507.31 rows=1 width=57) (actual time=210.385..211.584 rows=4629.50 loops=2)
+                                      Sort Key: u.email, c.updated_at
+                                      Sort Method: quicksort  Memory: 25kB
+                                      Buffers: shared hit=3933
+                                      Worker 0:  Sort Method: quicksort  Memory: 1094kB
+                                      ->  Parallel Hash Right Join  (cost=2115.78..5507.29 rows=1 width=57) (actual time=194.366..197.054 rows=4629.50 loops=2)
+                                            Hash Cond: (o.user_id = u.id)
+                                            Join Filter: (o.created_at > c.updated_at)
+                                            Rows Removed by Join Filter: 9398
+                                            Filter: (o.id IS NULL)
+                                            Rows Removed by Filter: 194
+                                            Buffers: shared hit=3918
+                                            ->  Parallel Seq Scan on orders o  (cost=0.00..3088.24 rows=58824 width=16) (actual time=1.566..13.929 rows=50000.00 loops=2)
+                                                  Buffers: shared hit=2500
+                                            ->  Parallel Hash  (cost=2045.49..2045.49 rows=5623 width=57) (actual time=152.947..152.955 rows=4777.00 loops=2)
+                                                  Buckets: 16384  Batches: 1  Memory Usage: 1056kB
+                                                  Buffers: shared hit=1418
+                                                  ->  Hash Join  (cost=633.14..2045.49 rows=5623 width=57) (actual time=32.291..118.291 rows=4777.00 loops=2)
+                                                        Hash Cond: (u.id = c.user_id)
+                                                        Buffers: shared hit=1418
+                                                        ->  Parallel Seq Scan on users u  (cost=0.00..1335.13 rows=29413 width=45) (actual time=0.025..16.461 rows=25001.00 loops=2)
+                                                              Buffers: shared hit=1041
+                                                        ->  Hash  (cost=513.66..513.66 rows=9559 width=16) (actual time=32.057..32.062 rows=9554.00 loops=2)
+                                                              Buckets: 16384  Batches: 1  Memory Usage: 576kB
+                                                              Buffers: shared hit=377
+                                                              ->  Bitmap Heap Scan on carts c  (cost=186.37..513.66 rows=9559 width=16) (actual time=2.728..16.659 rows=9554.00 loops=2)
+                                                                    Recheck Cond: (updated_at >= (CURRENT_DATE - '7 days'::interval))
+                                                                    Heap Blocks: exact=160
+                                                                    Buffers: shared hit=377
+                                                                    ->  Bitmap Index Scan on idx_carts_updated_at  (cost=0.00..183.98 rows=9559 width=0) (actual time=1.159..1.160 rows=9554.00 loops=2)
+                                                                          Index Cond: (updated_at >= (CURRENT_DATE - '7 days'::interval))
+                                                                          Index Searches: 2
+                                                                          Buffers: shared hit=57
+                          ->  Index Scan using cart_items_cart_id_variant_id_key on cart_items ci  (cost=0.29..0.53 rows=3 width=16) (actual time=0.010..0.012 rows=2.01 loops=9259)
+                                Index Cond: (cart_id = c.id)
+                                Index Searches: 9259
+                                Buffers: shared hit=26041
+                    ->  Index Scan using product_variants_pkey on product_variants pv  (cost=0.29..0.35 rows=1 width=13) (actual time=0.009..0.009 rows=1.00 loops=18633)
+                          Index Cond: (id = ci.variant_id)
+                          Index Searches: 18633
+                          Buffers: shared hit=55899
+              ->  Index Scan using products_pkey on products p  (cost=0.29..0.33 rows=1 width=10) (actual time=0.010..0.010 rows=1.00 loops=18633)
+                    Index Cond: (id = pv.product_id)
+                    Index Searches: 18633
+                    Buffers: shared hit=55899
+Planning:
+  Buffers: shared hit=575
+Planning Time: 143.030 ms
+Execution Time: 1077.350 ms

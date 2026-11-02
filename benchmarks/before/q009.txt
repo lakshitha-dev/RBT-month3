@@ -1,0 +1,30 @@
+-- Query 9: Promotion Usage Report
+-- 15 runs (TIMING OFF): median 73.480 ms, min 44.544 ms
+-- all runs (ms): 44.544, 46.593, 49.468, 55.737, 63.688, 65.018, 69.323, 73.480, 87.364, 100.710, 103.001, 114.448, 118.257, 123.101, 157.818
+-- buffers (whole query): shared hit=2504
+-- plan below: one extra run with per-node timing (adds overhead)
+
+Sort  (cost=4845.20..4845.26 rows=26 width=146) (actual time=77.072..77.080 rows=26.00 loops=1)
+  Sort Key: (count(o.id)) DESC
+  Sort Method: quicksort  Memory: 27kB
+  Buffers: shared hit=2504
+  ->  HashAggregate  (cost=4843.81..4844.59 rows=26 width=146) (actual time=76.918..76.986 rows=26.00 loops=1)
+        Group Key: pr.code
+        Batches: 1  Memory Usage: 56kB
+        Buffers: shared hit=2501
+        ->  Hash Right Join  (cost=1.58..3983.84 rows=85997 width=51) (actual time=6.827..66.227 rows=15305.00 loops=1)
+              Hash Cond: (o.promotion_id = pr.id)
+              Buffers: shared hit=2501
+              ->  Seq Scan on orders o  (cost=0.00..3750.00 rows=85997 width=17) (actual time=5.123..49.941 rows=86121.00 loops=1)
+                    Filter: ((status)::text <> ALL ('{cancelled,refunded}'::text[]))
+                    Rows Removed by Filter: 13879
+                    Buffers: shared hit=2500
+              ->  Hash  (cost=1.26..1.26 rows=26 width=38) (actual time=0.072..0.075 rows=26.00 loops=1)
+                    Buckets: 1024  Batches: 1  Memory Usage: 10kB
+                    Buffers: shared hit=1
+                    ->  Seq Scan on promotions pr  (cost=0.00..1.26 rows=26 width=38) (actual time=0.040..0.050 rows=26.00 loops=1)
+                          Buffers: shared hit=1
+Planning:
+  Buffers: shared hit=258
+Planning Time: 16.893 ms
+Execution Time: 77.280 ms

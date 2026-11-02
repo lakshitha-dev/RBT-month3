@@ -1,0 +1,1037 @@
+{
+  "scale": {
+    "users": 50000,
+    "products": 10000,
+    "variants_per_product": 4,
+    "orders": 100000,
+    "reviews": 60000
+  },
+  "runs": 15,
+  "environment": [
+    "version|PostgreSQL 18.6 on x86_64-windows, compiled by msvc-19.44.35228, 64-bit",
+    "effective_cache_size|524288 8kB",
+    "jit|on",
+    "max_parallel_workers_per_gather|2",
+    "random_page_cost|4",
+    "shared_buffers|16384 8kB",
+    "work_mem|4096 kB",
+    "db_size|206 MB"
+  ],
+  "table_rows": [
+    "order_status_history|383089",
+    "order_items|299745",
+    "orders|100000",
+    "addresses|85139",
+    "reviews|59996",
+    "payment_methods|55105",
+    "wishlist_items|51779",
+    "cart_items|50161",
+    "users|50002",
+    "inventory|40002",
+    "product_variants|40002",
+    "carts|24991",
+    "products|10002",
+    "categories|54",
+    "promotions|26",
+    "schema_migrations|4"
+  ],
+  "queries": [
+    {
+      "id": "1",
+      "title": "Top Selling Products by Category",
+      "before_ms": 512.323,
+      "after_ms": 503.2,
+      "improvement_pct": 1.8,
+      "before_min_ms": 338.265,
+      "after_min_ms": 391.814,
+      "min_improvement_pct": -15.8,
+      "before_pages": 5282,
+      "after_pages": 4159,
+      "pages_reduction_pct": 21.3
+    },
+    {
+      "id": "2",
+      "title": "Customer Lifetime Value",
+      "before_ms": 1244.839,
+      "after_ms": 1162.195,
+      "improvement_pct": 6.6,
+      "before_min_ms": 769.844,
+      "after_min_ms": 970.108,
+      "min_improvement_pct": -26.0,
+      "before_pages": 3547,
+      "after_pages": 3547,
+      "pages_reduction_pct": 0.0
+    },
+    {
+      "id": "3",
+      "title": "Inventory Low Stock Alert",
+      "before_ms": 70.464,
+      "after_ms": 73.112,
+      "improvement_pct": -3.8,
+      "before_min_ms": 38.568,
+      "after_min_ms": 40.584,
+      "min_improvement_pct": -5.2,
+      "before_pages": 872,
+      "after_pages": 894,
+      "pages_reduction_pct": -2.5
+    },
+    {
+      "id": "4",
+      "title": "Review Statistics by Product",
+      "before_ms": 1599.633,
+      "after_ms": 929.313,
+      "improvement_pct": 41.9,
+      "before_min_ms": 973.464,
+      "after_min_ms": 555.256,
+      "min_improvement_pct": 43.0,
+      "before_pages": 19984,
+      "after_pages": 78048,
+      "pages_reduction_pct": -290.6
+    },
+    {
+      "id": "5",
+      "title": "Cart Abandonment Analysis",
+      "before_ms": 1206.199,
+      "after_ms": 1056.138,
+      "improvement_pct": 12.4,
+      "before_min_ms": 603.304,
+      "after_min_ms": 613.587,
+      "min_improvement_pct": -1.7,
+      "before_pages": 141718,
+      "after_pages": 141586,
+      "pages_reduction_pct": 0.1
+    },
+    {
+      "id": "6",
+      "title": "Order Status Breakdown",
+      "before_ms": 879.686,
+      "after_ms": 829.979,
+      "improvement_pct": 5.7,
+      "before_min_ms": 562.837,
+      "after_min_ms": 586.997,
+      "min_improvement_pct": -4.3,
+      "before_pages": 5517,
+      "after_pages": 4439,
+      "pages_reduction_pct": 19.5
+    },
+    {
+      "id": "7",
+      "title": "Category Hierarchy with Product Counts",
+      "before_ms": 7.664,
+      "after_ms": 8.878,
+      "improvement_pct": -15.8,
+      "before_min_ms": 6.436,
+      "after_min_ms": 6.128,
+      "min_improvement_pct": 4.8,
+      "before_pages": 206,
+      "after_pages": 206,
+      "pages_reduction_pct": 0.0
+    },
+    {
+      "id": "8",
+      "title": "User Purchase History",
+      "before_ms": 40.809,
+      "after_ms": 0.978,
+      "improvement_pct": 97.6,
+      "before_min_ms": 33.042,
+      "after_min_ms": 0.679,
+      "min_improvement_pct": 97.9,
+      "before_pages": 2506,
+      "after_pages": 24,
+      "pages_reduction_pct": 99.0
+    },
+    {
+      "id": "9",
+      "title": "Promotion Usage Report",
+      "before_ms": 73.48,
+      "after_ms": 62.145,
+      "improvement_pct": 15.4,
+      "before_min_ms": 44.544,
+      "after_min_ms": 47.176,
+      "min_improvement_pct": -5.9,
+      "before_pages": 2504,
+      "after_pages": 8558,
+      "pages_reduction_pct": -241.8
+    },
+    {
+      "id": "10",
+      "title": "Revenue by Time Period",
+      "before_ms": 274.991,
+      "after_ms": 358.682,
+      "improvement_pct": -30.4,
+      "before_min_ms": 214.78,
+      "after_min_ms": 218.017,
+      "min_improvement_pct": -1.5,
+      "before_pages": 2506,
+      "after_pages": 2506,
+      "pages_reduction_pct": 0.0
+    },
+    {
+      "id": "11",
+      "title": "Brief example - one user's orders with all columns",
+      "before_ms": 33.93,
+      "after_ms": 2.853,
+      "improvement_pct": 91.6,
+      "before_min_ms": 24.117,
+      "after_min_ms": 2.015,
+      "min_improvement_pct": 91.6,
+      "before_pages": 2831,
+      "after_pages": 349,
+      "pages_reduction_pct": 87.7
+    },
+    {
+      "id": "11b",
+      "title": "Brief example rewritten - named columns, newest first",
+      "before_ms": 38.387,
+      "after_ms": 2.819,
+      "improvement_pct": 92.7,
+      "before_min_ms": 23.701,
+      "after_min_ms": 1.873,
+      "min_improvement_pct": 92.1,
+      "before_pages": 2834,
+      "after_pages": 349,
+      "pages_reduction_pct": 87.7
+    },
+    {
+      "id": "4b",
+      "title": "Query 4 rewritten - category average computed once",
+      "before_ms": 858.178,
+      "after_ms": 891.75,
+      "improvement_pct": -3.9,
+      "before_min_ms": 610.471,
+      "after_min_ms": 482.535,
+      "min_improvement_pct": 21.0,
+      "before_pages": 1915,
+      "after_pages": 1915,
+      "pages_reduction_pct": 0.0
+    },
+    {
+      "id": "5b",
+      "title": "Query 5 rewritten - NOT EXISTS anti-join",
+      "before_ms": 555.364,
+      "after_ms": 398.003,
+      "improvement_pct": 28.3,
+      "before_min_ms": 471.209,
+      "after_min_ms": 274.436,
+      "min_improvement_pct": 41.8,
+      "before_pages": 4598,
+      "after_pages": 2513,
+      "pages_reduction_pct": 45.3
+    },
+    {
+      "id": "6b",
+      "title": "Query 6 with work_mem raised to 16MB",
+      "before_ms": 1020.854,
+      "after_ms": 606.77,
+      "improvement_pct": 40.6,
+      "before_min_ms": 756.355,
+      "after_min_ms": 419.893,
+      "min_improvement_pct": 44.5,
+      "before_pages": 5517,
+      "after_pages": 4439,
+      "pages_reduction_pct": 19.5
+    }
+  ],
+  "before": {
+    "1": {
+      "title": "Top Selling Products by Category",
+      "median_ms": 512.323,
+      "min_ms": 338.265,
+      "runs_ms": [
+        338.265,
+        380.69,
+        429.616,
+        443.086,
+        490.882,
+        499.68,
+        509.306,
+        512.323,
+        538.029,
+        578.012,
+        600.127,
+        638.732,
+        647.078,
+        718.709,
+        851.362
+      ],
+      "pages": 5282,
+      "buffers": {
+        "shared_hit": 5282
+      }
+    },
+    "2": {
+      "title": "Customer Lifetime Value",
+      "median_ms": 1244.839,
+      "min_ms": 769.844,
+      "runs_ms": [
+        769.844,
+        904.564,
+        938.953,
+        940.879,
+        1030.288,
+        1066.079,
+        1231.745,
+        1244.839,
+        1307.069,
+        1385.142,
+        1450.481,
+        1581.397,
+        1783.41,
+        2546.311,
+        3104.846
+      ],
+      "pages": 3547,
+      "buffers": {
+        "shared_hit": 3547,
+        "temp_read": 1171,
+        "temp_written": 1318
+      }
+    },
+    "3": {
+      "title": "Inventory Low Stock Alert",
+      "median_ms": 70.464,
+      "min_ms": 38.568,
+      "runs_ms": [
+        38.568,
+        43.298,
+        46.591,
+        49.373,
+        57.254,
+        57.259,
+        60.163,
+        70.464,
+        81.754,
+        84.264,
+        102.007,
+        103.145,
+        107.452,
+        109.229,
+        115.388
+      ],
+      "pages": 872,
+      "buffers": {
+        "shared_hit": 872
+      }
+    },
+    "4": {
+      "title": "Review Statistics by Product",
+      "median_ms": 1599.633,
+      "min_ms": 973.464,
+      "runs_ms": [
+        973.464,
+        1015.865,
+        1053.245,
+        1144.136,
+        1266.952,
+        1466.513,
+        1537.135,
+        1599.633,
+        1773.285,
+        2070.502,
+        2116.691,
+        2626.793,
+        2729.159,
+        3368.997,
+        4612.209
+      ],
+      "pages": 19984,
+      "buffers": {
+        "shared_hit": 19984,
+        "temp_read": 484,
+        "temp_written": 485
+      }
+    },
+    "5": {
+      "title": "Cart Abandonment Analysis",
+      "median_ms": 1206.199,
+      "min_ms": 603.304,
+      "runs_ms": [
+        603.304,
+        815.848,
+        841.071,
+        850.288,
+        1014.52,
+        1087.613,
+        1097.935,
+        1206.199,
+        1271.389,
+        1410.712,
+        1579.523,
+        1679.225,
+        1681.954,
+        2385.117,
+        2576.732
+      ],
+      "pages": 141718,
+      "buffers": {
+        "shared_hit": 141718
+      }
+    },
+    "6": {
+      "title": "Order Status Breakdown",
+      "median_ms": 879.686,
+      "min_ms": 562.837,
+      "runs_ms": [
+        562.837,
+        624.489,
+        643.635,
+        649.835,
+        650.321,
+        662.14,
+        711.985,
+        879.686,
+        899.781,
+        949.255,
+        976.975,
+        1009.567,
+        1009.838,
+        1435.98,
+        1504.417
+      ],
+      "pages": 5517,
+      "buffers": {
+        "shared_hit": 5517,
+        "temp_read": 400,
+        "temp_written": 401
+      }
+    },
+    "7": {
+      "title": "Category Hierarchy with Product Counts",
+      "median_ms": 7.664,
+      "min_ms": 6.436,
+      "runs_ms": [
+        6.436,
+        6.522,
+        6.565,
+        6.851,
+        7.115,
+        7.29,
+        7.617,
+        7.664,
+        7.835,
+        9.154,
+        9.369,
+        9.5,
+        10.947,
+        11.302,
+        11.39
+      ],
+      "pages": 206,
+      "buffers": {
+        "shared_hit": 206
+      }
+    },
+    "8": {
+      "title": "User Purchase History",
+      "median_ms": 40.809,
+      "min_ms": 33.042,
+      "runs_ms": [
+        33.042,
+        35.257,
+        35.312,
+        36.083,
+        37.236,
+        38.908,
+        38.941,
+        40.809,
+        41.122,
+        48.034,
+        51.775,
+        54.309,
+        60.077,
+        65.441,
+        296.685
+      ],
+      "pages": 2506,
+      "buffers": {
+        "shared_hit": 2506
+      }
+    },
+    "9": {
+      "title": "Promotion Usage Report",
+      "median_ms": 73.48,
+      "min_ms": 44.544,
+      "runs_ms": [
+        44.544,
+        46.593,
+        49.468,
+        55.737,
+        63.688,
+        65.018,
+        69.323,
+        73.48,
+        87.364,
+        100.71,
+        103.001,
+        114.448,
+        118.257,
+        123.101,
+        157.818
+      ],
+      "pages": 2504,
+      "buffers": {
+        "shared_hit": 2504
+      }
+    },
+    "10": {
+      "title": "Revenue by Time Period",
+      "median_ms": 274.991,
+      "min_ms": 214.78,
+      "runs_ms": [
+        214.78,
+        225.054,
+        227.936,
+        235.259,
+        242.477,
+        265.495,
+        270.265,
+        274.991,
+        303.868,
+        306.131,
+        309.613,
+        317.8,
+        368.537,
+        378.852,
+        405.235
+      ],
+      "pages": 2506,
+      "buffers": {
+        "shared_hit": 2506,
+        "temp_read": 302,
+        "temp_written": 303
+      }
+    },
+    "11": {
+      "title": "Brief example - one user's orders with all columns",
+      "median_ms": 33.93,
+      "min_ms": 24.117,
+      "runs_ms": [
+        24.117,
+        24.936,
+        26.079,
+        26.158,
+        30.965,
+        31.961,
+        32.138,
+        33.93,
+        34.46,
+        41.466,
+        41.785,
+        68.376,
+        73.08,
+        81.02,
+        360.627
+      ],
+      "pages": 2831,
+      "buffers": {
+        "shared_hit": 2831
+      }
+    },
+    "11b": {
+      "title": "Brief example rewritten - named columns, newest first",
+      "median_ms": 38.387,
+      "min_ms": 23.701,
+      "runs_ms": [
+        23.701,
+        23.953,
+        24.38,
+        25.044,
+        25.271,
+        26.689,
+        33.218,
+        38.387,
+        39.922,
+        40.805,
+        48.477,
+        53.007,
+        55.034,
+        56.726,
+        72.406
+      ],
+      "pages": 2834,
+      "buffers": {
+        "shared_hit": 2834
+      }
+    },
+    "4b": {
+      "title": "Query 4 rewritten - category average computed once",
+      "median_ms": 858.178,
+      "min_ms": 610.471,
+      "runs_ms": [
+        610.471,
+        667.095,
+        667.344,
+        729.096,
+        732.68,
+        766.04,
+        818.855,
+        858.178,
+        908.116,
+        938.958,
+        940.879,
+        978.69,
+        994.38,
+        1024.049,
+        1167.469
+      ],
+      "pages": 1915,
+      "buffers": {
+        "shared_hit": 1915,
+        "temp_read": 535,
+        "temp_written": 536
+      }
+    },
+    "5b": {
+      "title": "Query 5 rewritten - NOT EXISTS anti-join",
+      "median_ms": 555.364,
+      "min_ms": 471.209,
+      "runs_ms": [
+        471.209,
+        486.608,
+        492.869,
+        492.966,
+        532.457,
+        538.332,
+        541.852,
+        555.364,
+        573.626,
+        591.005,
+        636.125,
+        642.028,
+        673.72,
+        774.802,
+        850.722
+      ],
+      "pages": 4598,
+      "buffers": {
+        "shared_hit": 4598
+      }
+    },
+    "6b": {
+      "title": "Query 6 with work_mem raised to 16MB",
+      "median_ms": 1020.854,
+      "min_ms": 756.355,
+      "runs_ms": [
+        756.355,
+        808.895,
+        816.311,
+        844.535,
+        870.661,
+        916.804,
+        970.189,
+        1020.854,
+        1021.481,
+        1085.085,
+        1087.586,
+        1091.781,
+        1148.983,
+        1297.184,
+        1756.638
+      ],
+      "pages": 5517,
+      "buffers": {
+        "shared_hit": 5517
+      }
+    }
+  },
+  "after": {
+    "1": {
+      "title": "Top Selling Products by Category",
+      "median_ms": 503.2,
+      "min_ms": 391.814,
+      "runs_ms": [
+        391.814,
+        415.119,
+        455.677,
+        470.324,
+        470.673,
+        482.897,
+        491.049,
+        503.2,
+        503.76,
+        522.722,
+        529.947,
+        535.186,
+        540.804,
+        635.125,
+        814.219
+      ],
+      "pages": 4159,
+      "buffers": {
+        "shared_hit": 4159
+      }
+    },
+    "2": {
+      "title": "Customer Lifetime Value",
+      "median_ms": 1162.195,
+      "min_ms": 970.108,
+      "runs_ms": [
+        970.108,
+        987.86,
+        1007.167,
+        1077.862,
+        1092.304,
+        1100.302,
+        1125.869,
+        1162.195,
+        1209.572,
+        1346.009,
+        1381.167,
+        1400.324,
+        1448.581,
+        1634.609,
+        3067.681
+      ],
+      "pages": 3547,
+      "buffers": {
+        "shared_hit": 3547,
+        "temp_read": 1171,
+        "temp_written": 1318
+      }
+    },
+    "3": {
+      "title": "Inventory Low Stock Alert",
+      "median_ms": 73.112,
+      "min_ms": 40.584,
+      "runs_ms": [
+        40.584,
+        43.433,
+        47.794,
+        64.597,
+        66.809,
+        69.101,
+        71.012,
+        73.112,
+        97.606,
+        98.647,
+        99.392,
+        129.064,
+        135.532,
+        155.958,
+        313.402
+      ],
+      "pages": 894,
+      "buffers": {
+        "shared_hit": 894
+      }
+    },
+    "4": {
+      "title": "Review Statistics by Product",
+      "median_ms": 929.313,
+      "min_ms": 555.256,
+      "runs_ms": [
+        555.256,
+        617.323,
+        696.139,
+        741.992,
+        838.631,
+        855.419,
+        885.678,
+        929.313,
+        1021.933,
+        1059.516,
+        1426.259,
+        1463.765,
+        1758.682,
+        1798.984,
+        2265.72
+      ],
+      "pages": 78048,
+      "buffers": {
+        "shared_hit": 78048
+      }
+    },
+    "5": {
+      "title": "Cart Abandonment Analysis",
+      "median_ms": 1056.138,
+      "min_ms": 613.587,
+      "runs_ms": [
+        613.587,
+        635.696,
+        750.787,
+        921.252,
+        957.047,
+        1018.791,
+        1028.764,
+        1056.138,
+        1190.739,
+        1272.696,
+        1291.472,
+        1441.252,
+        1495.112,
+        1636.386,
+        1726.522
+      ],
+      "pages": 141586,
+      "buffers": {
+        "shared_hit": 141586
+      }
+    },
+    "6": {
+      "title": "Order Status Breakdown",
+      "median_ms": 829.979,
+      "min_ms": 586.997,
+      "runs_ms": [
+        586.997,
+        619.285,
+        743.509,
+        754.028,
+        777.389,
+        794.095,
+        808.105,
+        829.979,
+        969.517,
+        1003.744,
+        1046.112,
+        1118.181,
+        1121.343,
+        1176.06,
+        1256.976
+      ],
+      "pages": 4439,
+      "buffers": {
+        "shared_hit": 4439,
+        "temp_read": 400,
+        "temp_written": 401
+      }
+    },
+    "7": {
+      "title": "Category Hierarchy with Product Counts",
+      "median_ms": 8.878,
+      "min_ms": 6.128,
+      "runs_ms": [
+        6.128,
+        6.77,
+        6.976,
+        7.136,
+        7.452,
+        7.453,
+        7.55,
+        8.878,
+        9.137,
+        9.508,
+        9.625,
+        9.749,
+        10.137,
+        11.301,
+        15.225
+      ],
+      "pages": 206,
+      "buffers": {
+        "shared_hit": 206
+      }
+    },
+    "8": {
+      "title": "User Purchase History",
+      "median_ms": 0.978,
+      "min_ms": 0.679,
+      "runs_ms": [
+        0.679,
+        0.767,
+        0.804,
+        0.808,
+        0.861,
+        0.896,
+        0.967,
+        0.978,
+        1.015,
+        1.066,
+        1.25,
+        1.414,
+        1.449,
+        1.497,
+        1.538
+      ],
+      "pages": 24,
+      "buffers": {
+        "shared_hit": 24
+      }
+    },
+    "9": {
+      "title": "Promotion Usage Report",
+      "median_ms": 62.145,
+      "min_ms": 47.176,
+      "runs_ms": [
+        47.176,
+        48.34,
+        49.43,
+        51.462,
+        52.422,
+        58.455,
+        59.132,
+        62.145,
+        64.392,
+        67.626,
+        82.843,
+        89.073,
+        96.228,
+        121.66,
+        222.291
+      ],
+      "pages": 8558,
+      "buffers": {
+        "shared_hit": 8558
+      }
+    },
+    "10": {
+      "title": "Revenue by Time Period",
+      "median_ms": 358.682,
+      "min_ms": 218.017,
+      "runs_ms": [
+        218.017,
+        274.824,
+        294.044,
+        294.333,
+        301.038,
+        311.7,
+        339.39,
+        358.682,
+        413.733,
+        434.348,
+        515.905,
+        566.538,
+        577.497,
+        721.161,
+        1070.84
+      ],
+      "pages": 2506,
+      "buffers": {
+        "shared_hit": 2506,
+        "temp_read": 302,
+        "temp_written": 303
+      }
+    },
+    "11": {
+      "title": "Brief example - one user's orders with all columns",
+      "median_ms": 2.853,
+      "min_ms": 2.015,
+      "runs_ms": [
+        2.015,
+        2.231,
+        2.241,
+        2.412,
+        2.5,
+        2.579,
+        2.828,
+        2.853,
+        3.431,
+        3.687,
+        4.758,
+        4.78,
+        4.932,
+        5.828,
+        14.955
+      ],
+      "pages": 349,
+      "buffers": {
+        "shared_hit": 349
+      }
+    },
+    "11b": {
+      "title": "Brief example rewritten - named columns, newest first",
+      "median_ms": 2.819,
+      "min_ms": 1.873,
+      "runs_ms": [
+        1.873,
+        1.924,
+        1.933,
+        2.13,
+        2.237,
+        2.446,
+        2.755,
+        2.819,
+        3.309,
+        4.015,
+        4.208,
+        4.556,
+        4.979,
+        15.498,
+        21.451
+      ],
+      "pages": 349,
+      "buffers": {
+        "shared_hit": 349
+      }
+    },
+    "4b": {
+      "title": "Query 4 rewritten - category average computed once",
+      "median_ms": 891.75,
+      "min_ms": 482.535,
+      "runs_ms": [
+        482.535,
+        508.834,
+        518.789,
+        595.226,
+        670.663,
+        773.379,
+        821.481,
+        891.75,
+        973.09,
+        996.558,
+        1097.808,
+        1102.356,
+        1134.228,
+        1171.306,
+        1455.675
+      ],
+      "pages": 1915,
+      "buffers": {
+        "shared_hit": 1915,
+        "temp_read": 535,
+        "temp_written": 536
+      }
+    },
+    "5b": {
+      "title": "Query 5 rewritten - NOT EXISTS anti-join",
+      "median_ms": 398.003,
+      "min_ms": 274.436,
+      "runs_ms": [
+        274.436,
+        284.748,
+        296.617,
+        349.668,
+        357.732,
+        379.455,
+        388.773,
+        398.003,
+        408.107,
+        435.82,
+        439.295,
+        465.44,
+        506.55,
+        643.231,
+        721.624
+      ],
+      "pages": 2513,
+      "buffers": {
+        "shared_hit": 2513
+      }
+    },
+    "6b": {
+      "title": "Query 6 with work_mem raised to 16MB",
+      "median_ms": 606.77,
+      "min_ms": 419.893,
+      "runs_ms": [
+        419.893,
+        461.051,
+        464.676,
+        469.915,
+        475.622,
+        584.965,
+        600.09,
+        606.77,
+        686.906,
+        702.189,
+        702.69,
+        738.251,
+        790.556,
+        972.944,
+        974.588
+      ],
+      "pages": 4439,
+      "buffers": {
+        "shared_hit": 4439
+      }
+    }
+  }
+}

@@ -1,0 +1,29 @@
+-- Query 9: Promotion Usage Report
+-- 15 runs (TIMING OFF): median 62.145 ms, min 47.176 ms
+-- all runs (ms): 47.176, 48.340, 49.430, 51.462, 52.422, 58.455, 59.132, 62.145, 64.392, 67.626, 82.843, 89.073, 96.228, 121.660, 222.291
+-- buffers (whole query): shared hit=8558
+-- plan below: one extra run with per-node timing (adds overhead)
+
+Sort  (cost=2843.03..2843.09 rows=26 width=146) (actual time=76.312..76.316 rows=26.00 loops=1)
+  Sort Key: (count(o.id)) DESC
+  Sort Method: quicksort  Memory: 27kB
+  Buffers: shared hit=8558
+  ->  HashAggregate  (cost=2841.64..2842.42 rows=26 width=146) (actual time=76.146..76.235 rows=26.00 loops=1)
+        Group Key: pr.code
+        Batches: 1  Memory Usage: 56kB
+        Buffers: shared hit=8555
+        ->  Merge Left Join  (cost=0.42..1981.67 rows=85997 width=51) (actual time=0.090..57.023 rows=15305.00 loops=1)
+              Merge Cond: (pr.id = o.promotion_id)
+              Buffers: shared hit=8555
+              ->  Index Scan using promotions_pkey on promotions pr  (cost=0.14..12.53 rows=26 width=38) (actual time=0.013..0.070 rows=26.00 loops=1)
+                    Index Searches: 1
+                    Buffers: shared hit=2
+              ->  Index Scan using idx_orders_promotion on orders o  (cost=0.29..9989.88 rows=85997 width=17) (actual time=0.071..49.005 rows=15304.00 loops=1)
+                    Filter: ((status)::text <> ALL ('{cancelled,refunded}'::text[]))
+                    Rows Removed by Filter: 2355
+                    Index Searches: 1
+                    Buffers: shared hit=8553
+Planning:
+  Buffers: shared hit=343
+Planning Time: 34.198 ms
+Execution Time: 76.562 ms

@@ -1,0 +1,32 @@
+-- Query 8: User Purchase History
+-- 15 runs (TIMING OFF): median 40.809 ms, min 33.042 ms
+-- all runs (ms): 33.042, 35.257, 35.312, 36.083, 37.236, 38.908, 38.941, 40.809, 41.122, 48.034, 51.775, 54.309, 60.077, 65.441, 296.685
+-- buffers (whole query): shared hit=2506
+-- plan below: one extra run with per-node timing (adds overhead)
+
+Sort  (cost=4010.02..4010.07 rows=20 width=139) (actual time=24.848..24.850 rows=14.00 loops=1)
+  Sort Key: o.created_at DESC
+  Sort Method: quicksort  Memory: 26kB
+  Buffers: shared hit=2506
+  ->  WindowAgg  (cost=4008.96..4009.59 rows=20 width=139) (actual time=24.786..24.807 rows=14.00 loops=1)
+        Window: w1 AS (ORDER BY o.created_at)
+        Storage: Memory  Maximum Storage: 17kB
+        Buffers: shared hit=2503
+        ->  Sort  (cost=4008.94..4008.99 rows=20 width=43) (actual time=24.724..24.727 rows=14.00 loops=1)
+              Sort Key: o.created_at
+              Sort Method: quicksort  Memory: 25kB
+              Buffers: shared hit=2503
+              ->  Nested Loop  (cost=0.29..4008.51 rows=20 width=43) (actual time=3.951..24.656 rows=14.00 loops=1)
+                    Buffers: shared hit=2503
+                    ->  Index Scan using users_pkey on users u  (cost=0.29..8.31 rows=1 width=16) (actual time=0.051..0.057 rows=1.00 loops=1)
+                          Index Cond: (id = 123)
+                          Index Searches: 1
+                          Buffers: shared hit=3
+                    ->  Seq Scan on orders o  (cost=0.00..4000.00 rows=20 width=31) (actual time=3.892..24.561 rows=14.00 loops=1)
+                          Filter: (((status)::text <> ALL ('{cancelled,refunded}'::text[])) AND (user_id = 123))
+                          Rows Removed by Filter: 99986
+                          Buffers: shared hit=2500
+Planning:
+  Buffers: shared hit=208
+Planning Time: 12.176 ms
+Execution Time: 25.048 ms

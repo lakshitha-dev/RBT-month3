@@ -1,0 +1,69 @@
+-- Query 6: Order Status Breakdown
+-- 15 runs (TIMING OFF): median 829.979 ms, min 586.997 ms
+-- all runs (ms): 586.997, 619.285, 743.509, 754.028, 777.389, 794.095, 808.105, 829.979, 969.517, 1003.744, 1046.112, 1118.181, 1121.343, 1176.060, 1256.976
+-- buffers (whole query): shared hit=4439, temp read=400 written=401
+-- plan below: one extra run with per-node timing (adds overhead)
+
+Sort  (cost=31089.10..31089.19 rows=36 width=230) (actual time=615.475..615.486 rows=6.00 loops=1)
+  Sort Key: (count(*)) DESC
+  Sort Method: quicksort  Memory: 25kB
+  Buffers: shared hit=4439, temp read=400 written=401
+  CTE recent_orders
+    ->  Bitmap Heap Scan on orders  (cost=543.11..3546.24 rows=28750 width=19) (actual time=3.489..39.643 rows=28956.00 loops=1)
+          Recheck Cond: (created_at >= (CURRENT_DATE - '90 days'::interval))
+          Heap Blocks: exact=1341
+          Buffers: shared hit=1422
+          ->  Bitmap Index Scan on idx_orders_created_at  (cost=0.00..535.92 rows=28750 width=0) (actual time=3.015..3.015 rows=28956.00 loops=1)
+                Index Cond: (created_at >= (CURRENT_DATE - '90 days'::interval))
+                Index Searches: 1
+                Buffers: shared hit=81
+  ->  WindowAgg  (cost=27541.18..27541.93 rows=36 width=230) (actual time=615.403..615.427 rows=6.00 loops=1)
+        Window: w1 AS ()
+        Storage: Memory  Maximum Storage: 17kB
+        Buffers: shared hit=4436, temp read=400 written=401
+        ->  HashAggregate  (cost=27540.22..27540.76 rows=36 width=166) (actual time=615.287..615.306 rows=6.00 loops=1)
+              Group Key: ro.status, at.avg_duration
+              Batches: 1  Memory Usage: 32kB
+              Buffers: shared hit=4436, temp read=400 written=401
+              ->  Hash Left Join  (cost=26548.94..27252.72 rows=28750 width=110) (actual time=570.865..595.406 rows=28956.00 loops=1)
+                    Hash Cond: ((ro.status)::text = (at.status)::text)
+                    Buffers: shared hit=4436, temp read=400 written=401
+                    ->  CTE Scan on recent_orders ro  (cost=0.00..575.00 rows=28750 width=94) (actual time=3.501..9.924 rows=28956.00 loops=1)
+                          Storage: Memory  Maximum Storage: 1614kB
+                          Buffers: shared hit=83
+                    ->  Hash  (cost=26548.87..26548.87 rows=6 width=24) (actual time=567.219..567.225 rows=4.00 loops=1)
+                          Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                          Buffers: shared hit=4353, temp read=400 written=401
+                          ->  Subquery Scan on at  (cost=26548.73..26548.87 rows=6 width=24) (actual time=567.189..567.200 rows=4.00 loops=1)
+                                Buffers: shared hit=4353, temp read=400 written=401
+                                ->  HashAggregate  (cost=26548.73..26548.81 rows=6 width=24) (actual time=567.182..567.191 rows=4.00 loops=1)
+                                      Group Key: time_in_status.status
+                                      Batches: 1  Memory Usage: 32kB
+                                      Buffers: shared hit=4353, temp read=400 written=401
+                                      ->  Subquery Scan on time_in_status  (cost=22273.88..25981.22 rows=113502 width=24) (actual time=404.396..534.894 rows=76347.00 loops=1)
+                                            Filter: (time_in_status.duration IS NOT NULL)
+                                            Rows Removed by Filter: 28956
+                                            Buffers: shared hit=4353, temp read=400 written=401
+                                            ->  WindowAgg  (cost=22273.88..24840.50 rows=114072 width=36) (actual time=404.391..521.033 rows=105303.00 loops=1)
+                                                  Window: w1 AS (PARTITION BY h.order_id ORDER BY h.changed_at)
+                                                  Storage: Memory  Maximum Storage: 17kB
+                                                  Buffers: shared hit=4353, temp read=400 written=401
+                                                  ->  Sort  (cost=22273.88..22559.06 rows=114072 width=20) (actual time=404.329..423.760 rows=105303.00 loops=1)
+                                                        Sort Key: h.order_id, h.changed_at
+                                                        Sort Method: external merge  Disk: 3200kB
+                                                        Buffers: shared hit=4353, temp read=400 written=401
+                                                        ->  Hash Join  (cost=934.38..10350.57 rows=114072 width=20) (actual time=242.133..343.907 rows=105303.00 loops=1)
+                                                              Hash Cond: (h.order_id = ro_1.id)
+                                                              Buffers: shared hit=4347
+                                                              ->  Seq Scan on order_status_history h  (cost=0.00..6838.89 rows=383089 width=20) (actual time=0.048..69.635 rows=383089.00 loops=1)
+                                                                    Buffers: shared hit=3008
+                                                              ->  Hash  (cost=575.00..575.00 rows=28750 width=4) (actual time=83.269..83.270 rows=28956.00 loops=1)
+                                                                    Buckets: 32768  Batches: 1  Memory Usage: 1274kB
+                                                                    Buffers: shared hit=1339
+                                                                    ->  CTE Scan on recent_orders ro_1  (cost=0.00..575.00 rows=28750 width=4) (actual time=0.006..61.989 rows=28956.00 loops=1)
+                                                                          Storage: Memory  Maximum Storage: 1614kB
+                                                                          Buffers: shared hit=1339
+Planning:
+  Buffers: shared hit=373
+Planning Time: 37.780 ms
+Execution Time: 660.455 ms

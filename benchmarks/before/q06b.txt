@@ -1,0 +1,65 @@
+-- Query 6b: Query 6 with work_mem raised to 16MB
+-- 15 runs (TIMING OFF): median 1020.854 ms, min 756.355 ms
+-- all runs (ms): 756.355, 808.895, 816.311, 844.535, 870.661, 916.804, 970.189, 1020.854, 1021.481, 1085.085, 1087.586, 1091.781, 1148.983, 1297.184, 1756.638
+-- buffers (whole query): shared hit=5517
+-- plan below: one extra run with per-node timing (adds overhead)
+
+Sort  (cost=29660.47..29660.56 rows=36 width=230) (actual time=1053.237..1053.250 rows=6.00 loops=1)
+  Sort Key: (count(*)) DESC
+  Sort Method: quicksort  Memory: 25kB
+  Buffers: shared hit=5517
+  CTE recent_orders
+    ->  Seq Scan on orders  (cost=0.00..4250.00 rows=28844 width=19) (actual time=3.009..240.129 rows=28956.00 loops=1)
+          Filter: (created_at >= (CURRENT_DATE - '90 days'::interval))
+          Rows Removed by Filter: 71044
+          Buffers: shared hit=2500
+  ->  WindowAgg  (cost=25408.79..25409.54 rows=36 width=230) (actual time=1053.189..1053.211 rows=6.00 loops=1)
+        Window: w1 AS ()
+        Storage: Memory  Maximum Storage: 17kB
+        Buffers: shared hit=5514
+        ->  HashAggregate  (cost=25407.83..25408.37 rows=36 width=166) (actual time=1052.776..1053.125 rows=6.00 loops=1)
+              Group Key: ro.status, at.avg_duration
+              Batches: 1  Memory Usage: 32kB
+              Buffers: shared hit=5514
+              ->  Hash Left Join  (cost=24413.32..25119.39 rows=28844 width=110) (actual time=1002.680..1029.535 rows=28956.00 loops=1)
+                    Hash Cond: ((ro.status)::text = (at.status)::text)
+                    Buffers: shared hit=5514
+                    ->  CTE Scan on recent_orders ro  (cost=0.00..576.88 rows=28844 width=94) (actual time=3.019..9.347 rows=28956.00 loops=1)
+                          Storage: Memory  Maximum Storage: 1614kB
+                          Buffers: shared hit=842
+                    ->  Hash  (cost=24413.24..24413.24 rows=6 width=24) (actual time=999.624..999.633 rows=4.00 loops=1)
+                          Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                          Buffers: shared hit=4672
+                          ->  Subquery Scan on at  (cost=24413.11..24413.24 rows=6 width=24) (actual time=999.590..999.609 rows=4.00 loops=1)
+                                Buffers: shared hit=4672
+                                ->  HashAggregate  (cost=24413.11..24413.18 rows=6 width=24) (actual time=999.583..999.600 rows=4.00 loops=1)
+                                      Group Key: time_in_status.status
+                                      Batches: 1  Memory Usage: 32kB
+                                      Buffers: shared hit=4672
+                                      ->  Subquery Scan on time_in_status  (cost=20083.47..23838.33 rows=114956 width=24) (actual time=714.536..956.218 rows=76347.00 loops=1)
+                                            Filter: (time_in_status.duration IS NOT NULL)
+                                            Rows Removed by Filter: 28956
+                                            Buffers: shared hit=4672
+                                            ->  WindowAgg  (cost=20083.47..22682.99 rows=115534 width=36) (actual time=714.534..927.414 rows=105303.00 loops=1)
+                                                  Window: w1 AS (PARTITION BY h.order_id ORDER BY h.changed_at)
+                                                  Storage: Memory  Maximum Storage: 17kB
+                                                  Buffers: shared hit=4672
+                                                  ->  Sort  (cost=20083.47..20372.31 rows=115534 width=20) (actual time=714.276..728.372 rows=105303.00 loops=1)
+                                                        Sort Key: h.order_id, h.changed_at
+                                                        Sort Method: quicksort  Memory: 7186kB
+                                                        Buffers: shared hit=4672
+                                                        ->  Hash Join  (cost=937.43..10368.24 rows=115534 width=20) (actual time=540.923..666.091 rows=105303.00 loops=1)
+                                                              Hash Cond: (h.order_id = ro_1.id)
+                                                              Buffers: shared hit=4666
+                                                              ->  Seq Scan on order_status_history h  (cost=0.00..6838.89 rows=383089 width=20) (actual time=0.054..107.475 rows=383089.00 loops=1)
+                                                                    Buffers: shared hit=3008
+                                                              ->  Hash  (cost=576.88..576.88 rows=28844 width=4) (actual time=309.651..309.652 rows=28956.00 loops=1)
+                                                                    Buckets: 32768  Batches: 1  Memory Usage: 1274kB
+                                                                    Buffers: shared hit=1658
+                                                                    ->  CTE Scan on recent_orders ro_1  (cost=0.00..576.88 rows=28844 width=4) (actual time=0.008..285.207 rows=28956.00 loops=1)
+                                                                          Storage: Memory  Maximum Storage: 1614kB
+                                                                          Buffers: shared hit=1658
+Planning:
+  Buffers: shared hit=259
+Planning Time: 10.672 ms
+Execution Time: 1058.372 ms

@@ -1,0 +1,41 @@
+-- Query 2: Customer Lifetime Value
+-- 15 runs (TIMING OFF): median 1244.839 ms, min 769.844 ms
+-- all runs (ms): 769.844, 904.564, 938.953, 940.879, 1030.288, 1066.079, 1231.745, 1244.839, 1307.069, 1385.142, 1450.481, 1581.397, 1783.410, 2546.311, 3104.846
+-- buffers (whole query): shared hit=3547, temp read=1171 written=1318
+-- plan below: one extra run with per-node timing (adds overhead)
+
+Limit  (cost=26879.24..26879.74 rows=20 width=149) (actual time=2178.401..2178.447 rows=20.00 loops=1)
+  Buffers: shared hit=3547, temp read=1171 written=1318
+  ->  WindowAgg  (cost=26879.24..28129.27 rows=50002 width=149) (actual time=2178.395..2178.438 rows=20.00 loops=1)
+        Window: w1 AS (ORDER BY customer_stats.lifetime_value ROWS UNBOUNDED PRECEDING)
+        Storage: Memory  Maximum Storage: 17kB
+        Buffers: shared hit=3547, temp read=1171 written=1318
+        ->  Sort  (cost=26879.22..27004.22 rows=50002 width=149) (actual time=2178.323..2178.339 rows=20.00 loops=1)
+              Sort Key: customer_stats.lifetime_value DESC
+              Sort Method: external merge  Disk: 3696kB
+              Buffers: shared hit=3547, temp read=1171 written=1318
+              ->  Subquery Scan on customer_stats  (cost=16424.12..19214.14 rows=50002 width=149) (actual time=1593.169..2003.134 rows=39262.00 loops=1)
+                    Buffers: shared hit=3544, temp read=853 written=855
+                    ->  GroupAggregate  (cost=16424.12..18714.12 rows=50002 width=165) (actual time=1593.165..1990.820 rows=39262.00 loops=1)
+                          Group Key: u.email
+                          Buffers: shared hit=3544, temp read=853 written=855
+                          ->  Sort  (cost=16424.12..16639.12 rows=85997 width=63) (actual time=1593.083..1700.259 rows=86121.00 loops=1)
+                                Sort Key: u.email
+                                Sort Method: external merge  Disk: 6824kB
+                                Buffers: shared hit=3544, temp read=853 written=855
+                                ->  Hash Join  (cost=2166.05..6141.81 rows=85997 width=63) (actual time=585.441..1155.980 rows=86121.00 loops=1)
+                                      Hash Cond: (o.user_id = u.id)
+                                      Buffers: shared hit=3541
+                                      ->  Seq Scan on orders o  (cost=0.00..3750.00 rows=85997 width=22) (actual time=209.778..526.522 rows=86121.00 loops=1)
+                                            Filter: ((status)::text <> ALL ('{cancelled,refunded}'::text[]))
+                                            Rows Removed by Filter: 13879
+                                            Buffers: shared hit=2500
+                                      ->  Hash  (cost=1541.02..1541.02 rows=50002 width=45) (actual time=375.258..375.260 rows=50002.00 loops=1)
+                                            Buckets: 65536  Batches: 1  Memory Usage: 4358kB
+                                            Buffers: shared hit=1041
+                                            ->  Seq Scan on users u  (cost=0.00..1541.02 rows=50002 width=45) (actual time=0.170..297.875 rows=50002.00 loops=1)
+                                                  Buffers: shared hit=1041
+Planning:
+  Buffers: shared hit=254
+Planning Time: 310.734 ms
+Execution Time: 2309.113 ms

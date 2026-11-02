@@ -1,0 +1,64 @@
+-- Query 5b: Query 5 rewritten - NOT EXISTS anti-join
+-- 15 runs (TIMING OFF): median 555.364 ms, min 471.209 ms
+-- all runs (ms): 471.209, 486.608, 492.869, 492.966, 532.457, 538.332, 541.852, 555.364, 573.626, 591.005, 636.125, 642.028, 673.720, 774.802, 850.722
+-- buffers (whole query): shared hit=4598
+-- plan below: one extra run with per-node timing (adds overhead)
+
+Sort  (cost=11240.10..11277.30 rows=14879 width=133) (actual time=662.831..663.819 rows=7450.00 loops=1)
+  Sort Key: (sum(((ci.quantity)::numeric * (p.base_price + pv.price_modifier)))) DESC
+  Sort Method: quicksort  Memory: 1034kB
+  Buffers: shared hit=4598
+  ->  HashAggregate  (cost=9948.53..10208.91 rows=14879 width=133) (actual time=633.898..652.446 rows=7450.00 loops=1)
+        Group Key: u.email, c.updated_at
+        Batches: 1  Memory Usage: 3601kB
+        Buffers: shared hit=4595
+        ->  Hash Join  (cost=8414.32..9650.95 rows=14879 width=72) (actual time=360.261..534.291 rows=18633.00 loops=1)
+              Hash Cond: (pv.product_id = p.id)
+              Buffers: shared hit=4595
+              ->  Hash Join  (cost=7990.27..9187.84 rows=14879 width=70) (actual time=348.886..494.375 rows=18633.00 loops=1)
+                    Hash Cond: (ci.variant_id = pv.id)
+                    Buffers: shared hit=4396
+                    ->  Hash Join  (cost=6715.23..7873.73 rows=14879 width=65) (actual time=319.802..425.702 rows=18633.00 loops=1)
+                          Hash Cond: (ci.cart_id = c.id)
+                          Buffers: shared hit=4021
+                          ->  Seq Scan on cart_items ci  (cost=0.00..821.61 rows=50161 width=16) (actual time=0.052..20.788 rows=50161.00 loops=1)
+                                Buffers: shared hit=320
+                          ->  Hash  (cost=6622.57..6622.57 rows=7413 width=57) (actual time=319.663..319.671 rows=9259.00 loops=1)
+                                Buckets: 16384 (originally 8192)  Batches: 1 (originally 1)  Memory Usage: 964kB
+                                Buffers: shared hit=3701
+                                ->  Hash Right Anti Join  (cost=2508.60..6622.57 rows=7413 width=57) (actual time=302.798..310.164 rows=9259.00 loops=1)
+                                      Hash Cond: (o.user_id = u.id)
+                                      Join Filter: (o.created_at > c.updated_at)
+                                      Rows Removed by Join Filter: 18796
+                                      Buffers: shared hit=3701
+                                      ->  Seq Scan on orders o  (cost=0.00..3500.00 rows=100000 width=12) (actual time=4.351..41.446 rows=100000.00 loops=1)
+                                            Buffers: shared hit=2500
+                                      ->  Hash  (cost=2389.12..2389.12 rows=9559 width=57) (actual time=162.769..162.776 rows=9554.00 loops=1)
+                                            Buckets: 16384  Batches: 1  Memory Usage: 991kB
+                                            Buffers: shared hit=1201
+                                            ->  Hash Join  (cost=716.83..2389.12 rows=9559 width=57) (actual time=27.556..119.994 rows=9554.00 loops=1)
+                                                  Hash Cond: (u.id = c.user_id)
+                                                  Buffers: shared hit=1201
+                                                  ->  Seq Scan on users u  (cost=0.00..1541.02 rows=50002 width=45) (actual time=0.024..36.326 rows=50002.00 loops=1)
+                                                        Buffers: shared hit=1041
+                                                  ->  Hash  (cost=597.34..597.34 rows=9559 width=16) (actual time=27.415..27.419 rows=9554.00 loops=1)
+                                                        Buckets: 16384  Batches: 1  Memory Usage: 576kB
+                                                        Buffers: shared hit=160
+                                                        ->  Seq Scan on carts c  (cost=0.00..597.34 rows=9559 width=16) (actual time=0.036..22.280 rows=9554.00 loops=1)
+                                                              Filter: (updated_at >= (CURRENT_DATE - '7 days'::interval))
+                                                              Rows Removed by Filter: 15437
+                                                              Buffers: shared hit=160
+                    ->  Hash  (cost=775.02..775.02 rows=40002 width=13) (actual time=28.191..28.191 rows=40002.00 loops=1)
+                          Buckets: 65536  Batches: 1  Memory Usage: 2348kB
+                          Buffers: shared hit=375
+                          ->  Seq Scan on product_variants pv  (cost=0.00..775.02 rows=40002 width=13) (actual time=0.078..10.777 rows=40002.00 loops=1)
+                                Buffers: shared hit=375
+              ->  Hash  (cost=299.02..299.02 rows=10002 width=10) (actual time=11.253..11.254 rows=10002.00 loops=1)
+                    Buckets: 16384  Batches: 1  Memory Usage: 558kB
+                    Buffers: shared hit=199
+                    ->  Seq Scan on products p  (cost=0.00..299.02 rows=10002 width=10) (actual time=0.079..3.507 rows=10002.00 loops=1)
+                          Buffers: shared hit=199
+Planning:
+  Buffers: shared hit=415
+Planning Time: 44.703 ms
+Execution Time: 667.342 ms

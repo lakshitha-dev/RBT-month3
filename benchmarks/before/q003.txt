@@ -1,0 +1,38 @@
+-- Query 3: Inventory Low Stock Alert
+-- 15 runs (TIMING OFF): median 70.464 ms, min 38.568 ms
+-- all runs (ms): 38.568, 43.298, 46.591, 49.373, 57.254, 57.259, 60.163, 70.464, 81.754, 84.264, 102.007, 103.145, 107.452, 109.229, 115.388
+-- buffers (whole query): shared hit=872
+-- plan below: one extra run with per-node timing (adds overhead)
+
+Sort  (cost=3194.55..3223.54 rows=11596 width=62) (actual time=99.701..101.296 rows=4744.00 loops=1)
+  Sort Key: ((i.quantity_in_stock - i.quantity_reserved))
+  Sort Method: quicksort  Memory: 579kB
+  Buffers: shared hit=872
+  ->  Hash Join  (cost=1478.99..2411.74 rows=11596 width=62) (actual time=26.793..94.133 rows=4744.00 loops=1)
+        Hash Cond: (pv.product_id = p.id)
+        Buffers: shared hit=869
+        ->  Hash Join  (cost=1061.70..1933.28 rows=12259 width=37) (actual time=14.317..75.809 rows=5018.00 loops=1)
+              Hash Cond: (pv.id = i.variant_id)
+              Buffers: shared hit=670
+              ->  Seq Scan on product_variants pv  (cost=0.00..775.02 rows=36778 width=29) (actual time=0.143..24.263 rows=36762.00 loops=1)
+                    Filter: is_active
+                    Rows Removed by Filter: 3240
+                    Buffers: shared hit=375
+              ->  Hash  (cost=895.03..895.03 rows=13334 width=16) (actual time=14.024..14.027 rows=5460.00 loops=1)
+                    Buckets: 16384  Batches: 1  Memory Usage: 384kB
+                    Buffers: shared hit=295
+                    ->  Seq Scan on inventory i  (cost=0.00..895.03 rows=13334 width=16) (actual time=0.042..9.805 rows=5460.00 loops=1)
+                          Filter: ((quantity_in_stock - quantity_reserved) <= low_stock_threshold)
+                          Rows Removed by Filter: 34542
+                          Buffers: shared hit=295
+        ->  Hash  (cost=299.02..299.02 rows=9461 width=29) (actual time=12.298..12.299 rows=9461.00 loops=1)
+              Buckets: 16384  Batches: 1  Memory Usage: 715kB
+              Buffers: shared hit=199
+              ->  Seq Scan on products p  (cost=0.00..299.02 rows=9461 width=29) (actual time=0.079..8.063 rows=9461.00 loops=1)
+                    Filter: is_active
+                    Rows Removed by Filter: 541
+                    Buffers: shared hit=199
+Planning:
+  Buffers: shared hit=223
+Planning Time: 29.648 ms
+Execution Time: 103.539 ms

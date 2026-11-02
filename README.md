@@ -4,6 +4,10 @@ PostgreSQL database for an online marketplace. It covers schema design, versione
 
 **Author:** Lakshitha Wijerathne · **Track:** Engineer, Month 3: Database Design & Optimization
 
+[![ShopFlow ERD: 15 tables with columns, types, keys, indexes and 1:1 / 1:N relationships](lakshitha-month3-erd.png)](lakshitha-month3-erd.png)
+
+*Entity relationship diagram, generated from the live schema. Click to open full size.*
+
 ## Deliverables
 
 | # | Deliverable | File |
